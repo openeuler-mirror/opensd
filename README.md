@@ -3,21 +3,22 @@
 #### 介绍
 Ansible Deployment for OpenStack
 
-#### 软件架构
-软件架构说明
+opensd用于批量地脚本化部署openstack各组件服务。
 
+#### 软件架构
+![architecture](architecture.png)
+
+opensd基于ansible开发，将openstack各组件的检查、数据库配置、安装前准备、认证、安装过程、安装完成后的配置等细节组织成“剧本”(Playbooks)，同时将各组件以“角色”的形式体现出来，结构清晰易懂，配置简单实用。
+
+用户可以通过修改安装、配置过程中对应的“剧本”就可以实现定制化集群部署。
 
 #### 安装教程
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+参考 [INSTALL.md](INSTALL.md)
 
 #### 使用说明
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+参考 [INSTALL.md](INSTALL.md)
 
 #### 参与贡献
 

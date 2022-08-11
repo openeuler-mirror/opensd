@@ -1,0 +1,45 @@
+---
+- name: Install yum package NVIDIA-vGPU-rhel
+  yum:
+    name: "NVIDIA-vGPU-rhel"
+    state: present
+    update_cache: yes
+  become: True
+
+- name: judge dir efi is exits
+  shell: ls /sys/firmware/efi
+  ignore_errors: True
+  register: efi_result
+
+- name: read the grub file
+  shell: cat  /boot/grub2/grub.cfg
+  register: no_efi_grub_contents
+  when: efi_result is failure
+
+- name: read the grub file
+  shell: cat  /boot/efi/EFI/centos/grub.cfg
+  register: efi_grub_contents
+  when: efi_result is succeeded
+
+- name: disable nouveau driver
+  command:  sed -i '1,/linux16/s/root ro/root ro rd.driver.blacklist=nouveau nouveau.modeset=0/' /boot/grub2/grub.cfg
+  when:
+    - "no_efi_grub_contents.stdout is defined"
+    - "no_efi_grub_contents.stdout.find('rd.driver.blacklist=nouveau') == -1"
+    - efi_result is failure
+
+- name: disable nouveau driver
+  command:  sed -i '1,/linuxefi/s/root ro/root ro rd.driver.blacklist=nouveau nouveau.modeset=0/' /boot/efi/EFI/centos/grub.cfg
+  when: 
+    - "efi_grub_contents.stdout is defined"
+    - "efi_grub_contents.stdout.find('rd.driver.blacklist=nouveau') == -1"
+    - efi_result is succeeded
+
+- name: config nouveau mode
+  template:
+    src: "nvidia-installer-disable-nouveau.conf.j2"
+    dest: "/etc/modprobe.d/nvidia-installer-disable-nouveau.conf"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+

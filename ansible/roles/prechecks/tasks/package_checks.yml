@@ -1,0 +1,5 @@
+---
+- name: Checking Ansible version
+  local_action: fail msg="Current Ansible version {{ ansible_version.full }} is less than {{ ansible_version_min }}"
+  run_once: true
+  when: ansible_version.full is version_compare(ansible_version_min, '<')

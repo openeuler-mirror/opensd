@@ -1,0 +1,65 @@
+---
+- name: Ensure nova packages installed
+  package:
+    name: "{{ nova_package_list }}"
+    state: "{{ nova_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  notify: Restart nova services
+
+- name: Get pass through servers
+  set_fact:
+    pass_through_servers: |
+      {% set server_list = [] %}
+      {% set pci_list = [] %}
+      {% for host in groups['nova-compute'] %}
+      {% if hostvars[host]['gpu_server_type'] is defined and hostvars[host]['gpu_server_type'] == 'pass_through'  %}
+      {% set pci_item = hostvars[host]['ansible_local']['openstack_ansible']['nova'] %}
+      {% if pci_item.product_id not in pci_list %}
+      {% set _ = pci_list.append(pci_item.product_id) %}
+      {% set _ = server_list.append(host) %}
+      {% endif %}
+      {% endif %}
+      {% endfor %}
+      {{ server_list }}
+
+- name: Copying over nova.conf
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/nova.conf.j2"
+      - "{{ node_custom_config }}/global.conf"
+      - "{{ node_custom_config }}/nova.conf"
+      - "{{ node_custom_config }}/nova/nova.conf"
+      - "{{ node_custom_config }}/nova/{{ inventory_hostname }}/nova.conf"
+    dest: "/etc/nova/nova.conf"
+    mode: "0666"
+  become: true
+  notify:
+    - Restart nova services
+
+- name: Copying over api-paste.ini
+  template:
+    src: "{{ item }}"
+    dest: "/etc/nova/api-paste.ini"
+    owner: root
+    group: "{{ nova_system_user_name }}"
+    mode: "0660"
+  with_first_found:
+    - "{{ node_custom_config }}/nova/api-paste.ini"
+    - "api-paste.ini.j2"
+  notify:
+    - Restart nova services
+
+- name: Copying over placement-api wsgi configuration
+  template:
+    src: "placement-api-wsgi.conf.j2"
+    dest: "/etc/httpd/conf.d/00-nova-placement-api.conf"
+    owner: root
+    group: "{{ nova_system_user_name }}"
+    mode: "0660"
+  when:
+    - inventory_hostname in groups['nova-api']
+  notify:
+    - Restart httpd service (placement-api)

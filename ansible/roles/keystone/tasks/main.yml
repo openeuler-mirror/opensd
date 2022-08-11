@@ -1,0 +1,2 @@
+---
+- include_tasks: "{{ opensd_action }}.yml"

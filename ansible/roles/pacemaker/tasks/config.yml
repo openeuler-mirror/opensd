@@ -1,0 +1,112 @@
+---
+- name: Include distribution version specific variables - RHEL/CentOS
+  include_vars: "el{{ ansible_distribution_major_version }}.yml"
+  when: ansible_distribution == 'RedHat' or ansible_distribution == 'CentOS'
+
+- name: Include distribution version specific variables - Fedora
+  include_vars: "fedora{{ ansible_distribution_major_version }}.yml"
+  when: ansible_distribution == 'Fedora'
+
+- name: Install Pacemaker cluster packages to all nodes
+  yum:
+    name: "{{ pacemaker_packages }}"
+    state: 'installed'
+  notify: Restart pcsd service
+
+- name: Install package(s) for fence_xvm
+  yum:
+    name: "{{ fence_xvm_packages }}"
+    state: 'installed'
+  when: cluster_configure_fence_xvm|bool
+
+- name: Install package(s) for fence_kdump
+  yum:
+    name:  "{{ fence_kdump_packages }}"
+    state: 'installed'
+  when: cluster_configure_fence_kdump|bool
+
+- name: Create cluster system group
+  group:
+    name: "{{ cluster_group }}"
+    state: 'present'
+
+- name: Create cluster system user
+  user:
+    name: "{{ cluster_user }}"
+    state: 'present'
+    password: >-
+      {{ cluster_user_pass |
+      password_hash('sha512', availability_zone|replace('-','x') |
+      truncate(16, True, '', 0)) }}
+    groups: "{{ cluster_group }}"
+    comment: 'HA Cluster Administrator'
+
+- name: Enable/Disable PCSD web GUI
+  lineinfile:
+    dest: '/etc/sysconfig/pcsd'
+    regexp: 'PCSD_DISABLE_GUI=.*'
+    line: "PCSD_DISABLE_GUI={{ enable_pcsd_gui|bool|ternary('false','true') }}"
+  when: enable_pcsd_gui != 'nochange'
+  notify: Restart pcsd service
+
+- name: Enable and start PCSD service
+  service:
+    name: 'pcsd'
+    enabled: true
+    state: 'started'
+
+- name: Authorize cluster nodes
+  pcs_auth:
+    node_name: "{{ hostvars[item]['ansible_fqdn'] }}"
+    username: "{{ cluster_user }}"
+    password: "{{ cluster_user_pass }}"
+  with_items: "{{ groups[pcs_cluster_group_name|default('pacemaker')] }}"
+  when: inventory_hostname == groups[pcs_cluster_group_name][0]
+
+- name: Setup cluster
+  pcs_cluster:
+    node_list: "{% for item in groups[pcs_cluster_group_name|default('pacemaker')] %}{{ hostvars[item]['ansible_fqdn'] }} {% endfor %}"
+    cluster_name: "{{ cluster_name }}"
+    transport: "{{ cluster_transport }}"
+    allowed_node_changes: "{% if allow_cluster_expansion|bool %}add{% else %}none{% endif %}"
+  when: inventory_hostname == groups[pcs_cluster_group_name][0]
+
+- name: Start cluster services on all nodes
+  service:
+    name: "{{ item }}"
+    state: 'started'
+  with_items:
+    - pacemaker
+    - corosync
+
+- name: Enable cluster services on boot
+  service:
+    name: "{{ item }}"
+    enabled: true
+  when: cluster_enable_service|bool
+  with_items:
+    - pacemaker
+    - corosync
+
+### set cluster properties
+- name: Disable stonith if we don't need
+  pcs_property:
+    name: 'stonith-enabled'
+    value: 'false'
+  when:
+    - cluster_configure_fence_xvm is not defined or not cluster_configure_fence_xvm|bool
+    - cluster_configure_fence_vmware_soap is not defined or not cluster_configure_fence_vmware_soap|bool
+    - cluster_configure_fence_kdump is not defined or not cluster_configure_fence_kdump|bool
+    - cluster_configure_fence_custom is not defined or not cluster_configure_fence_custom|bool
+    - inventory_hostname == groups[pcs_cluster_group_name][0]
+
+- name: Set other cluster properties
+  pcs_property:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+  with_items:
+    - { name: 'pe-warn-series-max', value: "{{ cluster_pe_warn_series_max }}" }
+    - { name: 'pe-input-series-max', value: "{{ cluster_pe_input_series_max }}" }
+    - { name: 'pe-error-series-max', value: "{{ cluster_pe_error_series_max }}" }
+    - { name: 'cluster-recheck-interval', value: "{{ cluster_recheck_interval }}" }
+  when: inventory_hostname == groups[pcs_cluster_group_name][0]

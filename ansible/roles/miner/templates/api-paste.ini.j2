@@ -1,0 +1,51 @@
+# {{ ansible_managed }}
+
+######################
+# OpenStack's Miner #
+######################
+
+[composite:osapi_miner]
+use = call:miner.api:root_app_factory
+/: api_versions
+/v1: miner_api_v1
+
+[composite:miner_api_v1]
+use = call:miner.api.middleware.auth:pipeline_factory
+noauth = response request_id sizelimit osprofiler noauth api_v1
+keystone = response request_id sizelimit osprofiler context api_v1
+keystone_nolimit = response request_id sizelimit osprofiler context api_v1
+
+[filter:request_id]
+paste.filter_factory = oslo_middleware.request_id:RequestId.factory
+
+[filter:response]
+paste.filter_factory = miner.api.middleware.http:Response.factory
+
+
+[filter:osprofiler]
+paste.filter_factory = osprofiler.web:WsgiMiddleware.factory
+hmac_keys = SECRET_KEY
+enabled = yes
+
+[filter:noauth]
+paste.filter_factory = miner.api.middleware.auth:NoAuthMiddleware.factory
+
+[filter:sizelimit]
+paste.filter_factory = miner.api.middleware.sizelimit:RequestBodySizeLimiter.factory
+
+[app:api_v1]
+paste.app_factory = miner.api.v1.router:APIRouter.factory
+
+[pipeline:api_versions]
+pipeline = os_miner_version_app
+
+[app:os_miner_version_app]
+paste.app_factory = miner.api.versions:Versions.factory
+
+
+##########
+# Shared #
+##########
+
+[filter:context]
+paste.filter_factory = miner.api.middleware.auth:MinerContext.factory

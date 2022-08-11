@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+
+[ovs]
+{% if neutron_tunnel_types | length > 0 %}
+local_ip = {{ neutron_local_ip }}
+{% endif %}
+{% if neutron_plugin_type != 'ml2.ovs' and neutron_provider_networks.network_mappings is defined and ((neutron_provider_networks.network_mappings | length) > 0) %}
+bridge_mappings = {{ neutron_provider_networks.network_mappings }}
+{% endif %}
+{% if neutron_services['neutron-openvswitch-agent']['group'] in group_names and neutron_plugin_type == 'ml2.ovs' and neutron_provider_networks.network_mappings is defined and ((neutron_provider_networks.network_mappings | length) > 0) %}
+bridge_mappings = {{ neutron_provider_networks.network_mappings }}
+{% endif %}
+
+[agent]
+l2_population = {{ neutron_plugins[neutron_plugin_type].l2_population }}
+tunnel_types = {{ neutron_tunnel_types }}
+enable_distributed_routing = {{ neutron_plugins[neutron_plugin_type].router_distributed | default('False') }}
+{% set _extensions = [] %}
+{% if 'qos' in neutron_plugin_base %}
+{% set _ = _extensions.append('qos') %}
+{% endif %}
+{% if 'port_forwarding' in neutron_plugin_base %}
+{% set _ = _extensions.append('port_forwarding') %}
+{% endif %}
+extensions = {{ _extensions | join(',') }}
+
+# Security groups
+[securitygroup]
+firewall_driver = {{ neutron_plugins[neutron_plugin_type].driver_firewall }}
+enable_security_group = True
+enable_ipset = True

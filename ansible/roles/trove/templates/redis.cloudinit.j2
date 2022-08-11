@@ -1,0 +1,4 @@
+#!/bin/bash
+grep {{ s3_endpoint_host_name }} /etc/hosts || echo {{ s3_endpoint_host_ip }} {{ s3_endpoint_host_name }} >>/etc/hosts
+grep proxy.opensd.io /etc/hosts ||  echo {{ opensd_vip_address }} proxy.opensd.io >>/etc/hosts
+grep proxy.opensd.me /etc/hosts ||  echo {{ opensd_vip_address }} proxy.opensd.me >>/etc/hosts

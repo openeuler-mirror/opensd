@@ -1,0 +1,38 @@
+---
+- name: Create DB for service
+  mysql_db:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ glance_database_name }}"
+    state: "present"
+  delegate_to: "{{ glance_db_setup_host }}"
+  no_log: True
+
+- name: Grant access to the DB for the service
+  mysql_user:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ glance_database_name }}"
+    password: "{{ glance_database_password }}"
+    host: "{{ item }}"
+    state: "present"
+    priv: "{{ glance_database_name }}.*:ALL"
+  delegate_to: "{{ glance_db_setup_host }}"
+  with_items:
+    - "localhost"
+    - "%"
+  no_log: True
+
+- name: Perform a Glance DB sync
+  command: "{{ glance_bin }}/glance-manage db_sync"
+  become: yes
+  become_user: "{{ glance_system_user_name }}"
+  changed_when: false
+
+- name: Load glance metadata definitions
+  command: "{{ glance_bin }}/glance-manage db_load_metadefs /etc/glance/metadefs"
+  become: yes
+  become_user: "{{ glance_system_user_name }}"
+  changed_when: false

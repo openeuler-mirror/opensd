@@ -1,0 +1,14 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: miner_pre_install.yml
+
+- include_tasks: miner_install.yml
+
+- include_tasks: miner_post_install.yml
+  when: inventory_hostname == miner_db_setup_host
+
+- include_tasks: miner_db_setup.yml
+  when: inventory_hostname == miner_db_setup_host
+
+# TODO by weimeng
+- include_tasks: miner_check.yml

@@ -1,0 +1,84 @@
+---
+## Verbosity Options
+trove_logging_debug: "{{ openstack_logging_debug }}"
+trove_setup_host: "{{ groups['trove'][0] }}"
+
+# Set the package install state
+# Options are 'present' and 'latest'
+trove_package_name:
+  - openstack-trove
+trove_client_package_name:
+  - python2-troveclient 
+trove_package_state: "present"
+
+## System info
+trove_system_user_name: trove
+trove_system_group_name: trove
+trove_system_shell: /bin/false
+trove_system_comment: trove system user
+trove_system_user_home: "/var/lib/{{ trove_system_user_name }}"
+trove_bin: "/usr/bin"
+trove_management_address: "{{ api_interface_address }}"
+
+## Database info
+trove_db_setup_host: "{{ ('mariadb' in groups) | ternary(groups['mariadb'][0], 'localhost') }}"
+trove_database_name: trove
+trove_database_user: trove
+trove_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+trove_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('/etc/ssl/certs/galera-ca.pem') }}"
+trove_role_name: admin
+trove_api_bind_address: "{{ api_interface_address }}"
+trove_api_service_port: 8779
+
+## Service Type and Data
+trove_service_region: RegionOne
+trove_service_name: trove
+trove_api_port: 8779
+trove_service_proto: http
+trove_service_type: database
+trove_service_description: "Database"
+trove_service_user_name: trove
+trove_service_project_name: service
+trove_service_project_domain_id: default
+trove_service_user_domain_id: default
+trove_service_publicurl: "http://{{ opensd_vip_address }}:{{ trove_api_port }}/v1.0/%(project_id)s"
+trove_service_internalurl: "http://{{ opensd_vip_address }}:{{ trove_api_port }}/v1.0/%(project_id)s"
+trove_service_adminurl: "http://{{ opensd_vip_address }}:{{ trove_api_port }}/v1.0/%(project_id)s"
+
+## Keystone authentication middleware
+trove_keystone_auth_plugin: password
+
+## Trove config
+trove_amqp_durable_queues: true
+trove_rabbit_ha_queues: true
+
+## Service Name-Group Mapping_services:
+trove_services:
+  trove-taskmanager:
+    group: trove
+    service_name: openstack-trove-taskmanager
+    start_order: 3
+  trove-conductor:
+    group: trove
+    service_name: openstack-trove-conductor
+    start_order: 2
+  trove-api:
+    group: trove
+    service_name: openstack-trove-api
+    start_order: 1
+
+filtered_trove_services: |-
+  {% set services = [] %}
+  {% for key, value in trove_services.items() %}
+  {%   if (value['group'] in group_names and value['enabled']|default(True)) %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+#s3_endpoint_url: "like http://s3.test.com"
+#s3_access_key: "like Z9GGDPN04MGO1H3H4LTK"
+#s3_secret_key: "like CX8DIA4GGXXZT22SWE64ORQ38B0CDUNPFAUWF8HT"
+
+#trove_rabbitmq_host: "{% for host in groups['rabbitmq'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}{% if not loop.last %},{% endif %}{% endfor %}"

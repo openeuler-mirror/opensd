@@ -1,0 +1,17 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: glance_pre_install.yml
+
+- include_tasks: glance_install.yml
+
+- include_tasks: glance_db_setup.yml
+  when: inventory_hostname == glance_setup_host
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: glance_register.yml
+  when: inventory_hostname == glance_setup_host
+
+# (TODO)
+- include_tasks: glance_check.yml

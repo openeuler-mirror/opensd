@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+
+[client]
+host=localhost
+port={{ mariadb_port }}
+user={{ galera_root_user }}
+password={{ galera_root_password }}
+socket={{ mariadb_socket }}

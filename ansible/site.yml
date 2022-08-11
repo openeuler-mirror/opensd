@@ -1,0 +1,253 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- import_playbook: gather-facts.yml
+
+- name: Apply role prechecks
+  gather_facts: false
+  hosts:
+    - all
+  roles:
+    - { role: prechecks,
+        when: opensd_action == "precheck" }
+
+- name: Apply role postchecks
+  gather_facts: false
+  hosts:
+    - all
+  roles:
+    - { role: postchecks,
+        when: opensd_action == "postcheck" }
+
+- name: Apply role chrony
+  gather_facts: false
+  hosts:
+    - all
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: chrony,
+        tags: always,
+        when: enable_chrony | bool }
+
+- name: Apply role pacemaker
+  gather_facts: false
+  hosts:
+    - pacemaker
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: pacemaker,
+        tags: pacemaker,
+        when: enable_pacemaker | bool }
+
+- name: Apply role haproxy
+  gather_facts: false
+  hosts:
+    - haproxy
+  roles:
+    - { role: haproxy,
+        tags: haproxy,
+        when: enable_haproxy | bool }
+
+- name: Add haproxy conf for ironic & trove
+  gather_facts: false
+  serial: '{{ opensd_serial|default("0") }}'
+  hosts: haproxy
+  tags: haproxy,trove,ironic,miner,dimsagent
+  tasks:
+    - block:
+        - include_role:
+            name: haproxy
+            tasks_from: config_add_service.yml
+          vars:
+            service_group: "{{ item.group }}"
+            service_name: "{{ item.name }}"
+            service_port: "{{ item.port }}"
+            haproxy_port: "{{ item.port }}"
+          with_items:
+            - group: "{{ groups['baremetal'] }}"
+              name: "{{ ironic_service_name }}"
+              port: "{{ ironic_service_port }}"
+            - group: "{{ groups['baremetal'] }}"
+              name: "{{ ironic_inspector_service_name }}"
+              port: "{{ ironic_inspector_service_port }}"
+          when:
+            - enable_ironic | bool
+            - groups['baremetal'] | count() > 1
+        - include_role:
+            name: haproxy
+            tasks_from: config_add_service.yml
+          vars:
+            service_group: "{{ item.group }}"
+            service_name: "{{ item.name }}"
+            service_port: "{{ item.port }}"
+            haproxy_port: "{{ item.port }}"
+          with_items:
+            - group: "{{ groups['trove'] }}"
+              name: "{{ trove_service_name }}"
+              port: "{{ trove_api_port }}"
+          when:
+            - enable_trove | bool
+        - include_role:
+            name: haproxy
+            tasks_from: config_add_service.yml
+          vars:
+            service_group: "{{ item.group }}"
+            service_name: "{{ item.name }}"
+            service_port: "{{ item.serviceport }}"
+            haproxy_port: "{{ item.haproxyport }}"
+          with_items:
+            - group: "{{ groups['miner'] }}"
+              name: "miner-api"
+              serviceport: "{{ miner_api_port }}"
+              haproxyport: "{{ haproxy_miner_api_port }}"
+          when:
+            - enable_miner | bool
+        - include_role:
+            name: haproxy
+            tasks_from: config_add_service.yml
+          vars:
+            service_group: "{{ item.group }}"
+            service_name: "{{ item.name }}"
+            service_port: "{{ item.serviceport }}"
+            haproxy_port: "{{ item.haproxyport }}"
+          with_items:
+            - group: "{{ groups['dims-agent'] }}"
+              name: "dimsagent-api"
+              serviceport: "{{ dims_agent_api_port }}"
+              haproxyport: "{{ dims_agent_api_port }}"
+          when:
+            - enable_dimsagent | bool
+      when:
+        - opensd_action in ['deploy']
+        - enable_haproxy | bool
+
+- name: Apply role mariadb
+  gather_facts: false
+  hosts: mariadb
+  roles:
+    - { role: mariadb,
+        tags: mariadb,
+        when: enable_mariadb | bool }
+
+- name: Apply role rabbitmq
+  gather_facts: false
+  hosts: rabbitmq
+  roles:
+    - { role: rabbitmq,
+        tags: rabbitmq,
+        when: enable_rabbitmq | bool }
+
+- name: Apply role memcached
+  gather_facts: false
+  hosts: memcached
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: memcached,
+        tags: [ memcached],
+        when: enable_memcached | bool }
+
+- name: Apply role ceph_client
+  gather_facts: false
+  hosts: ceph-client
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: ceph_client,
+        tags: ceph_client,
+        when: enable_ceph_client | bool }
+
+- name: Apply role keystone
+  gather_facts: false
+  hosts: keystone
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: keystone,
+        tags: keystone,
+        when: enable_keystone | bool }
+
+- name: Apply role glance
+  gather_facts: false
+  hosts:
+    - glance-api
+    - glance-registry
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: glance,
+        tags: glance,
+        when: enable_glance | bool }
+
+- name: Apply role cinder
+  gather_facts: false
+  hosts:
+    - cinder-api
+    - cinder-scheduler
+    - cinder-backup
+    - cinder-volume
+  serial: 3
+  roles:
+    - { role: cinder,
+        tags: cinder,
+        when: enable_cinder | bool }
+
+- import_playbook: nova.yml
+  when: enable_nova | bool
+  tags: nova
+
+- name: Apply role neutron
+  gather_facts: false
+  hosts:
+    - neutron-server
+    - neutron-dhcp-agent
+    - neutron-l3-agent
+    - neutron-openvswitch-agent
+    - neutron-lbaasv2-agent
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: neutron,
+        tags: neutron,
+        when: enable_neutron | bool }
+
+- name: Apply role trove
+  gather_facts: false
+  hosts:
+    - trove
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: trove,
+        tags: trove,
+        when: enable_trove | bool }
+
+- import_playbook: ironic.yml
+  when: enable_ironic | bool
+  tags: ironic
+
+- name: Apply role miner
+  gather_facts: false
+  hosts:
+    - miner-api
+    - miner-beat
+    - miner-patrol
+    - miner-sentry
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: miner,
+        tags: miner,
+        when: enable_miner | bool }
+
+- name: Apply role pri_mariadb
+  gather_facts: false
+  hosts: pri_mariadb
+  roles:
+    - { role: pri_mariadb,
+        tags: pri_mariadb,
+        when: enable_pri_mariadb | bool }
+
+- name: Apply role dims-agent
+  gather_facts: false
+  hosts:
+    - dimsagent-api
+    - dimsagent-agent
+    - dimsagent-scheduler
+  roles:
+    - { role: dimsagent,
+        tags: dimsagent,
+        when: enable_dimsagent | bool }
+

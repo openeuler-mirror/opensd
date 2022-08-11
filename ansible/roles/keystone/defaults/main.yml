@@ -1,0 +1,81 @@
+---
+## keystone system info
+keystone_system_group_name: "keystone"
+keystone_system_user_name: "keystone"
+keystone_system_comment: "keystone system user"
+keystone_system_shell: "/bin/bash"
+keystone_system_user_home: "/var/lib/keystone"
+
+## keystone package manage
+keystone_package_name:
+  - openstack-keystone
+  - httpd
+  - mod_wsgi
+keystone_package_state: "present"
+
+## keystone fernet
+keystone_fernet_tokens_key_repository: "/etc/keystone/fernet-keys"
+keystone_fernet_rotation: "daily"
+keystone_fernet_auto_rotation_script: "/usr/local/bin/keystone-fernet-rotate"
+keystone_bin: "/usr/bin"
+
+## keystone credential
+keystone_credential_tokens_key_repository: "/etc/keystone/credential-keys"
+keystone_credential_rotation: "daily"
+keystone_credential_auto_rotation_script: "/usr/local/bin/keystone-credential-rotate"
+
+## keystone database
+keystone_database_name: keystone
+keystone_db_setup_host: "{{ ('mariadb' in groups) | ternary(groups['mariadb'][0], 'localhost') }}"
+keystone_database_user: keystone
+keystone_database_password: keystone
+keystone_db_max_overflow: 200
+keystone_db_max_pool_size: 500
+keystone_db_pool_timeout: 30
+keystone_db_min_pool_size: 100
+keystone_db_max_retries: 5
+keystone_db_retry_interval: 2
+keystone_db_inc_retry_interval: true
+keystone_db_max_retry_interval: 2
+
+## keystone.conf
+keystone_logging_debug: "{{ openstack_logging_debug }}"
+
+## openrc
+openrc_file_dest: "{{ ansible_env.HOME }}/openrc"
+openrc_file_owner: "{{ ansible_user_id }}"
+openrc_file_group: "{{ ansible_user_id }}"
+openrc_file_mode: "0600"
+
+openrc_openstack_client_config_dir_dest: "{{ ansible_env.HOME }}/.config/openstack"
+openrc_openstack_client_config_dir_owner: "{{ ansible_user_id }}"
+openrc_openstack_client_config_dir_group: "{{ ansible_user_id }}"
+openrc_openstack_client_config_dir_mode: "0700"
+openrc_clouds_yml_file_dest: "{{ openrc_openstack_client_config_dir_dest }}/clouds.yaml"
+openrc_clouds_yml_file_owner: "{{ ansible_user_id }}"
+openrc_clouds_yml_file_group: "{{ ansible_user_id }}"
+openrc_clouds_yml_file_mode: "0600"
+
+## Role info
+keystone_role_name: admin
+keystone_default_role_name: _member_
+
+## Admin info
+keystone_admin_user_name: admin
+keystone_admin_tenant_name: admin
+
+## Service Type and Data
+keystone_service_setup: true
+keystone_service_region: RegionOne
+keystone_service_name: keystone
+keystone_service_port: 5000
+keystone_service_type: identity
+keystone_service_description: "Keystone Identity Service"
+keystone_service_user_name: keystone
+keystone_service_tenant_name: service
+keystone_service_publicuri: "http://{{ opensd_vip_address }}:{{ keystone_service_port }}/v3"
+keystone_service_internaluri: "http://{{ opensd_vip_address }}:{{ keystone_service_port }}/v3"
+keystone_service_adminuri: "http://{{ opensd_vip_address }}:{{ keystone_service_port }}/v3"
+
+# Keystone oslo message
+keystone_amqp_durable_queues: true

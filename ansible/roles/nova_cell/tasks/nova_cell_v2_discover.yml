@@ -1,0 +1,29 @@
+---
+# When upgrading we need to map existing instances to the new cell
+# To do this we need the cell UUID.
+- name: Get UUID of new Nova Cell
+  shell: "{{ nova_bin }}/nova-manage cell_v2 list_cells | grep ' {{ nova_cell_name }} '"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  register: cell_uuid
+  changed_when: false
+
+- name: Map instances to new Cell
+  command: "{{ nova_bin }}/nova-manage cell_v2 map_instances --cell_uuid {{ cell_uuid['stdout'].split()[3] }}"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+
+# This needs to be done after Compute hosts are added.
+- name: Perform a cell_v2 discover by compute node
+  command: "{{ nova_bin }}/nova-manage cell_v2 discover_hosts --cell_uuid {{ cell_uuid['stdout'].split()[3] }}{{ (debug | bool) | ternary(' --verbose', '') }}"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+
+- name: Perform a cell_v2 discover by service
+  command: "{{ nova_bin }}/nova-manage cell_v2 discover_hosts --cell_uuid {{ cell_uuid['stdout'].split()[3] }}{{ (debug | bool) | ternary(' --verbose', '') }} --by-service"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+  when: enable_ironic | bool

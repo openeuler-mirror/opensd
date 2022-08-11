@@ -1,0 +1,34 @@
+---
+- name: Ensure mariadb service stopped
+  service:
+    name: mariadb{{ server_port }}
+    state: stopped
+
+- name: Start new cluster
+  command: /usr/local/bin/galera{{ server_port }}_new_cluster
+  failed_when: not start_new_cluster.rc in [0, 3]
+  changed_when: start_new_cluster.rc == 3
+  register: start_new_cluster
+  when: ansible_local['openstack_ansible'][galera_section]['role'] == "master"
+
+- name: Restart slave mariadb server
+  service:
+    name: mariadb{{ server_port }}
+    state: restarted
+    enabled: true
+  register: mariadb_restart
+  until: mariadb_restart is success
+  retries: 6
+  delay: 5
+  when: ansible_local['openstack_ansible'][galera_section]['role'] == "slave"
+
+- name: Record galera has been deployed
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: galera{{ server_port }}
+    option: deployed
+    value: true
+
+- name: Set the galera existing cluster fact
+  set_fact:
+    galera_deployed: true

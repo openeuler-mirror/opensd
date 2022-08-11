@@ -1,0 +1,32 @@
+---
+- name: Create DB for service
+  mysql_db:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ dims_agent_database_name }}"
+    state: "present"
+  delegate_to: "{{ dims_agent_db_setup_host }}"
+  no_log: True
+
+- name: Grant access to the DB for the service
+  mysql_user:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ dims_agent_database_name }}"
+    password: "{{ dims_agent_database_password }}"
+    host: "{{ item }}"
+    state: "present"
+    priv: "{{ dims_agent_database_name }}.*:ALL"
+  delegate_to: "{{ dims_agent_db_setup_host }}"
+  with_items:
+    - "localhost"
+    - "%"
+  no_log: True
+
+- name: Perform a Dims-agent DB sync
+  command: "{{ dims_agent_bin }}/dimsagent-manage --config-file /etc/dimsagent/dimsagent-agent.conf db sync"
+  become: yes
+  changed_when: false
+

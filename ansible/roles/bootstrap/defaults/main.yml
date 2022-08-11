@@ -1,0 +1,18 @@
+---
+customize_etc_hosts: True
+
+change_selinux: True
+
+selinux_state: "disabled"
+
+redhat_pkg_install:
+ - git
+ - python-setuptools
+ - sudo
+ - libselinux-python
+ - python-pip
+ - python-lxml
+ - python-openstackclient
+ - yum-utils
+
+redhat_pkg_removals: []

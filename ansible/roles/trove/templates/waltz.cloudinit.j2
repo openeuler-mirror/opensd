@@ -1,0 +1,26 @@
+#!/bin/bash
+grep {{ s3_endpoint_host_name }} /etc/hosts || echo {{ s3_endpoint_host_ip }} {{ s3_endpoint_host_name }} >>/etc/hosts
+grep proxy.opensd.io /etc/hosts ||  echo {{ opensd_vip_address }} proxy.opensd.io >>/etc/hosts
+grep proxy.opensd.me /etc/hosts ||  echo {{ opensd_vip_address }} proxy.opensd.me >>/etc/hosts
+
+cat > /etc/waltz/waltz_guarder.conf <<EOF
+--worker_threads_max_count=512
+--keystone_auth_api_url=http://{{ opensd_vip_address }}:5000/v3/auth/tokens?nocatalog
+--keystone_auth_data={ "auth": { "identity": { "methods": ["password"],"password": {"user": {"domain": {"name": "Default"},"name": "admin", "password": "{{ keystone_admin_password }}"} } }, "scope": { "project": { "domain": { "name": "Default" }, "name": "admin" } } }}
+--get_auth_token_interval=86400
+--get_instances_interval=10
+--trove_api_url_prefix=http://{{ opensd_vip_address }}:8779/v1.0/
+--monitor_task_interval=3
+--logdir=/var/log/waltz
+--max_log_size=1024
+--ssh_conn_timeout=20
+--mysql_conn_timeout=10
+--max_failed_ping_count=3
+--max_restart_old_master_count=3
+--failover_timeout_seconds=600
+--region_id=RegionOne,RegionTwo
+--sshkey_file_path=/etc/waltz/sshkey.tar.gz
+EOF
+
+systemctl enable waltz_guard_d.service
+systemctl start waltz_guard_d.service

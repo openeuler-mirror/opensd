@@ -1,0 +1,50 @@
+{% set keyfile = '/etc/chrony.keys' %}
+
+{# NOTE(jeffrey4l): external_ntp_servers may be None here #}
+{% if external_ntp_servers %}
+{% for ntp_server in external_ntp_servers %}
+server {{ ntp_server }} iburst
+{% endfor %}
+{% else %}
+server {{ opensd_vip_address }} iburst
+{% endif %}
+
+user chrony
+
+keyfile {{ keyfile }}
+
+commandkey 1
+
+driftfile /var/lib/chrony/chrony.drift
+
+log tracking measurements statistics
+logdir /var/log/opensd/chrony
+
+makestep 3 3
+
+maxupdateskew 100.0
+
+dumponexit
+
+dumpdir /var/lib/chrony
+
+{% if external_ntp_servers %}
+deny all
+{% else %}
+{% if inventory_hostname in groups['chrony-server'] %}
+allow all
+# prevent chrony sync from self
+deny {{ opensd_vip_address }}
+deny {{ api_interface_address }}
+local stratum 10
+{% else %}
+port 0
+deny all
+{% endif %}
+{% endif %}
+
+logchange 0.5
+
+hwclockfile /etc/adjtime
+
+rtcsync

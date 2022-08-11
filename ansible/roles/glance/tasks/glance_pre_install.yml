@@ -1,0 +1,19 @@
+---
+- name: create the system group
+  group:
+    name: "{{ glance_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the glance system user
+  user:
+    name: "{{ glance_system_user_name }}"
+    group: "{{ glance_system_group_name }}"
+    comment: "{{ glance_system_comment }}"
+    shell: "{{ glance_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ glance_system_user_home }}"
+
+# (TODO) by weimeng
+#- name: Create glance lvm mount points

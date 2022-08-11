@@ -1,0 +1,13 @@
+[Unit]
+Description=OpenStack Dimsagent Agent Server
+After=syslog.target network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python /usr/bin/dimsagent-agent --config-file /etc/dimsagent/dimsagent-agent.conf
+Restart=on-failure
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

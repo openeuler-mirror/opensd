@@ -1,0 +1,8 @@
+set default="1"
+set timeout=5
+set hidden_timeout_quiet=false
+
+menuentry 'Introspection for x86' {
+    linuxefi ironic-agent-x86.kernel itext showopts selinux=0 ipa-inspection-callback-url=http://{{ ironic_tftp_server_address }}:{{ haproxy_ironic_inspector_service_port if (groups['baremetal'] | count() > 1) else ironic_inspector_service_port }}/v1/continue ipa-inspection-collectors=default,logs,pci-devices ipa-collect-lldp=1 systemd.journald.forward_to_console=no BOOTIF=$net_default_mac ipa-debug=1
+    initrdefi ironic-agent-x86.initramfs
+}

@@ -1,0 +1,53 @@
+---
+## Verbosity Options
+dims_agent_logging_debug: "{{ openstack_logging_debug }}"
+dims_agent_setup_host: "{{ groups['dims-agent'][0] }}"
+
+# Set the package install state
+# Options are 'present' and 'latest'
+dims_agent_package_name:
+  - dimsagent
+  - python-dimsagentclient
+dims_agent_package_state: "present"
+
+## Database info
+dims_agent_db_setup_host: "{{ ('mariadb' in groups) | ternary(groups['mariadb'][0], 'localhost') }}"
+dims_agent_database_name: dims_agent
+dims_agent_database_user: dims_agent
+dims_agent_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+dims_agent_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('/etc/ssl/certs/galera-ca.pem') }}"
+dims_agent_db_max_overflow: 200
+dims_agent_db_max_pool_size: 500
+dims_agent_db_pool_timeout: 30
+dims_agent_db_min_pool_size: 100
+dims_agent_db_max_retries: 5
+dims_agent_db_retry_interval: 2
+dims_agent_db_inc_retry_interval: true
+dims_agent_db_max_retry_interval: 2
+
+dims_agent_role_name: admin
+dims_agent_api_bind_address: "{{ api_interface_address }}"
+
+## Service Type and Data
+dims_agent_service_region: RegionOne
+dims_agent_service_name: dims-agent
+dims_agent_api_port: 32100
+dims_agent_service_proto: http
+dims_agent_service_type: dims-agent
+dims_agent_service_description: "The agent on edge for distributing images"
+dims_agent_service_user_name: dims
+dims_agent_service_project_name: service
+dims_agent_service_project_domain_id: default
+dims_agent_service_user_domain_id: default
+dims_agent_service_publicurl: "http://{{ opensd_vip_address }}:{{ dims_agent_api_port }}/v1/%(tenant_id)s"
+dims_agent_service_internalurl: "http://{{ opensd_vip_address }}:{{ dims_agent_api_port }}/v1/%(tenant_id)s"
+dims_agent_service_adminurl: "http://{{ opensd_vip_address }}:{{ dims_agent_api_port }}/v1/%(tenant_id)s"
+
+
+## Keystone authentication middleware
+dims_agent_keystone_auth_plugin: password
+
+dims_agent_log_dir: "/var/log/dimsagent/"
+dims_agent_data_dir: "/mnt/dimsagent/"
+dims_agent_conf_dir: "/etc/dimsagent/"
+dims_agent_bin: "/usr/bin"

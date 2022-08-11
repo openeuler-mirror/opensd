@@ -1,0 +1,67 @@
+---
+- name: Ensure trove packages installed
+  package:
+    name: "{{ trove_package_name }}"
+    state: "{{ trove_package_state }}"
+  register: packages_install
+  until: packages_install is success
+  retries: 5
+  delay: 2
+  notify:
+    - Restart trove services
+
+- name: trove client installed
+  package:
+    name: "{{ trove_client_package_name }}"
+    state: "{{ trove_package_state }}"
+  register: packages_troveclient_install
+  until: packages_troveclient_install is success
+  retries: 5
+  delay: 2
+
+- name: Create trove cloudinit path
+  file:
+    path: "/etc/trove/cloudinit"
+    state: directory
+    owner: trove
+    group: trove
+    mode: 0755
+
+- name: Copying over trove cloudinit file
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/trove/cloudinit/{{ item }}"
+    owner: trove
+    group: trove
+    mode: "0660"
+  with_items:
+    - mysql.cloudinit
+    - redis.cloudinit
+    - waltz.cloudinit
+    - cetus.cloudinit
+    - shardingproxy.cloudinit
+
+- name: Copying over trove templates file
+  shell: /usr/bin/cp -rf /usr/lib/python2.7/site-packages/trove/templates /etc/trove/
+
+- name: Change owner of /etc/trove/templates
+  file:
+    path: /etc/trove/templates
+    group: trove
+    owner: trove
+
+
+- name: Copying over trove conf
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/trove/{{ item }}"
+    owner: trove
+    group: trove
+    mode: "0660"
+  with_items:
+    - trove.conf
+    - trove-conductor.conf
+    - trove-taskmanager.conf
+    - trove-guestagent.conf 
+  notify:
+    - Restart trove services

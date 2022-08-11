@@ -1,0 +1,68 @@
+---
+- name: Setup the service
+  block:
+    - name: Add service to the keystone service catalog
+      os_keystone_service:
+        cloud: default
+        state: present
+        name: "{{ glance_service_name }}"
+        service_type: "{{ glance_service_type }}"
+        description: "{{ glance_service_description }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add service user
+      os_user:
+        cloud: default
+        state: present
+        name: "{{ glance_service_user_name }}"
+        password: "{{ glance_service_password }}"
+        domain: default
+        default_project: "{{ glance_service_project_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+
+    - name: Add service user to admin role
+      os_user_role:
+        cloud: default
+        state: present
+        user: "{{ glance_service_user_name }}"
+        role: "{{ glance_role_name }}"
+        project: "{{ glance_service_project_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add endpoints to keystone endpoint catalog
+      os_keystone_endpoint:
+        cloud: default
+        state: present
+        service: "{{ glance_service_name }}"
+        endpoint_interface: "{{ item.interface }}"
+        url: "{{ item.url }}"
+        region: "{{ glance_service_region }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      with_items:
+        - interface: "public"
+          url: "{{ glance_service_publicurl }}"
+        - interface: "internal"
+          url: "{{ glance_service_internalurl }}"
+        - interface: "admin"
+          url: "{{ glance_service_adminurl }}"

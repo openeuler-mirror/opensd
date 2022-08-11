@@ -1,0 +1,16 @@
+[DEFAULT]
+{% for key, value in neutron_ml2_conf_genericswitch.items() %}
+switch_ports = {"{{ value['ngs_mac_address'] }}":"{{ value['switch_ports'] }}"}
+{% endfor %}
+
+ipmi_addresses = "{{ ipmi_addresses }}"
+
+ironic_hosts = "{{ ironic_hosts }}"
+
+x86_kernel_md5 = "{{ x86_kernel_md5 }}"
+
+x86_ramdisk_md5 = "{{ x86_ramdisk_md5 }}"
+
+arm_kernel_md5 = "{{ arm_kernel_md5 }}"
+
+arm_ramdisk_md5 = "{{ arm_ramdisk_md5 }}"

@@ -1,0 +1,28 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: neutron_pre_install.yml
+
+- include_tasks: neutron_install.yml
+
+- include_tasks: neutron_openvswitch.yml
+  when:
+    - neutron_needs_openvswitch | bool
+    - neutron_services['neutron-openvswitch-agent']['group'] in group_names
+
+- include_tasks: neutron_post_install.yml
+
+- include_tasks: neutron_db_setup.yml
+  when: inventory_hostname == neutron_setup_host
+
+- include_tasks: neutron_register.yml
+  when: inventory_hostname == neutron_setup_host
+
+# (TODO)
+#- include_tasks: neutron_l3_ha.yml
+#  when:
+#    - "neutron_services['neutron-l3-agent']['group'] in group_names"
+#  tags:
+#    - neutron-config
+
+- name: Flush handlers
+  meta: flush_handlers

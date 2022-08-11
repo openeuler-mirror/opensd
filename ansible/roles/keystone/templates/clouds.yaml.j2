@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+clouds:
+  default:
+    auth:
+      auth_url: {{ keystone_service_publicuri }}
+      project_name: {{ keystone_admin_tenant_name }}
+      tenant_name: {{ keystone_admin_tenant_name }}
+      username: {{ keystone_admin_user_name }}
+      password: {{ keystone_admin_password }}
+      user_domain_name: Default
+      project_domain_name: Default
+    region_name: {{ keystone_service_region }}
+    interface: internal
+{% if keystone_service_publicuri.endswith('v2.0') %}
+    identity_api_version: "2.0"
+{% else %}
+    identity_api_version: "3"
+{% endif %}

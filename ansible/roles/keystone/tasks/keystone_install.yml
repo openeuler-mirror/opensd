@@ -1,0 +1,35 @@
+---
+- name: Ensure keystone packages installed
+  package:
+    name: "{{ keystone_package_name }}"
+    state: "{{ keystone_package_state }}"
+  register: packages_install
+  until: packages_install is success
+  retries: 5
+  delay: 3
+  notify:
+    - Restart httpd server
+
+- name: Copy over keystone.conf
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/keystone.conf.j2"
+      - "{{ node_custom_config }}/keystone.conf"
+      - "{{ node_custom_config }}/keystone/{{ inventory_hostname }}/keystone.conf"
+    dest: "/etc/keystone/keystone.conf"
+    mode: "0660"
+  notify:
+    - Restart httpd server
+
+- name: Copying over wsgi-keystone.conf
+  template:
+    src: "{{ item }}"
+    dest: "/etc/httpd/conf.d/wsgi-keystone.conf"
+    mode: "0660"
+  become: true
+  with_first_found:
+    - "{{ node_custom_config }}/keystone/{{ inventory_hostname }}/wsgi-keystone.conf"
+    - "{{ node_custom_config }}/keystone/wsgi-keystone.conf"
+    - "wsgi-keystone.conf.j2"
+  notify:
+    - Restart httpd server

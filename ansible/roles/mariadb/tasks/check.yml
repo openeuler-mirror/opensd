@@ -1,0 +1,36 @@
+---
+- name: Check node status
+  command: >
+    mysql -u"{{ galera_root_user }}" -p"{{ galera_root_password }}" --silent --skip-column-names --connect-timeout=10 -e 'SHOW STATUS LIKE "wsrep_local_state";'
+  failed_when: false
+  changed_when: false
+  register: node_status
+
+- name: Fail if cluster is out of sync
+  fail:
+    msg: >
+      The cluster may be broken, the cluster state is not known to be good.
+      Fix the cluster state before re-running the playbooks. To ignore the
+      cluster state set '-e galera_ignore_cluster_state=true'.
+  when:
+    - node_status.rc != 0
+    - (node_status.stdout.split()[-1] | default(false)) in ["2", "4"]
+
+- name: Check cluster name
+  command: >
+    mysql -u"{{ galera_root_user }}" -p"{{ galera_root_password }}" --silent --skip-column-names --connect-timeout=10 -e 'SHOW VARIABLES LIKE "wsrep_cluster_name";'
+  failed_when: false
+  changed_when: false
+  register: cluster_name
+
+- name: Fail if galera_cluster_name doesnt match provided value
+  fail:
+    msg: >
+      The galera_cluster_name variable does not match what is set in mysql.
+      Check your galera_cluster_name setting in your all.yml files and compare
+      to the current value in "/etc/mysql/conf.d/mariadb-server.cnf" on the host, and
+      the "wsrep_cluster_name" value set in your running galera cluster.
+      To ignore the cluster state set '-e galera_ignore_cluster_state=true'.
+  when:
+    - cluster_name.rc != 0
+    - (cluster_name.stdout.split()[-1] | default(false)) != galera_cluster_name

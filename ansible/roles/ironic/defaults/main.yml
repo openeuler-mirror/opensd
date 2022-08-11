@@ -1,0 +1,260 @@
+---
+# Verbosity Options
+debug: True
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+ironic_service_setup_host: "{{ groups['control'][0]| default('localhost') }}"
+
+# Comma separated list of Glance API servers
+ironic_glance_api_servers: "{{ glance_service_internalurl }}"
+
+# Set the package install state for distribution and pip packages
+# Options are 'present' and 'latest'
+ironic_package_state: "present"
+
+# Ironic system info
+ironic_system_user_name: ironic
+ironic_system_group_name: ironic
+ironic_system_shell: /sbin/nologin
+ironic_system_comment: ironic system user
+ironic_system_home_folder: "/var/lib/{{ ironic_system_user_name }}"
+ironic_system_log_folder: "/var/log/{{ ironic_system_user_name }}"
+
+# ironic-inspector system info
+ironic_inspector_system_user_name: ironic-inspector
+ironic_inspector_system_group_name: ironic-inspector
+ironic_inspector_system_shell: /sbin/nologin
+ironic_inspector_system_comment: ironic-inspector system user
+ironic_inspector_system_home_folder: "/var/lib/{{ ironic_inspector_system_user_name }}"
+ironic_inspector_system_log_folder: "/var/log/{{ ironic_inspector_system_user_name }}"
+
+# Ironic service info
+ironic_bin: /usr/bin
+ironic_service_user_name: ironic
+ironic_service_name: ironic
+ironic_service_type: baremetal
+ironic_service_port: 6385
+haproxy_ironic_service_port: 16385
+ironic_service_description: "Ironic baremetal provisioning service"
+ironic_service_publicurl: "http://{{ opensd_vip_address }}:{{ ironic_service_port }}"
+ironic_service_adminurl: "http://{{ opensd_vip_address }}:{{ ironic_service_port }}"
+ironic_service_internalurl: "http://{{ opensd_vip_address }}:{{ ironic_service_port }}"
+ironic_service_region: RegionOne
+ironic_service_project_name: "service"
+ironic_service_project_domain_name: default
+ironic_service_user_domain_name: default
+ironic_service_role_name: "admin"
+ironic_keystone_auth_type: password
+
+# Ironic-inspector service info
+ironic_inspector_service_user_name: ironic-inspector
+ironic_inspector_service_name: ironic-inspector
+ironic_inspector_service_type: baremetal-introspection
+ironic_inspector_service_port: 5050
+haproxy_ironic_inspector_service_port: 15050
+ironic_inspector_service_description: "Ironic inspector baremetal provisioning service"
+ironic_inspector_service_publicurl: "http://{{ opensd_vip_address }}:{{ ironic_inspector_service_port }}/v1"
+ironic_inspector_service_adminurl: "http://{{ opensd_vip_address }}:{{ ironic_inspector_service_port }}/v1"
+ironic_inspector_service_internalurl: "http://{{ opensd_vip_address }}:{{ ironic_inspector_service_port }}/v1"
+ironic_inspector_service_region: RegionOne
+ironic_inspector_service_project_name: "service"
+ironic_inspector_service_project_domain_name: default
+ironic_inspector_service_user_domain_name: default
+ironic_inspector_service_role_name: "admin"
+ironic_inspector_keystone_auth_type: password
+
+# Info of http service for ironic
+# 
+httproot_service_port: 8888
+
+# Is this Ironic installation working standalone?
+# If you're wanting Ironic to work without being integrated to other OpenStack
+# services, set this to True, and update the dhcp configuration appropriately
+ironic_standalone: True
+
+# Enables or disables automated cleaning. Automated cleaning
+# is a configurable set of steps, such as erasing disk drives,
+# that are performed on the node to ensure it is in a baseline
+# state and ready to be deployed to.
+ironic_automated_clean: false
+
+# boot_mode: Set to True, to obtain the startup firmware of the server during drilling
+boot_mode: True
+
+# Database
+ironic_db_setup_host: "{{ groups['cell-control-cell1'][0] }}"
+ironic_galera_address: "{{ cell1_vip_address }}"
+galera_root_password: "{{ nova_cell_mysql_password }}"
+ironic_galera_user: ironic
+ironic_galera_database: ironic
+ironic_inspector_galera_user: ironic_inspector
+ironic_inspector_galera_database: ironic_inspector
+
+# Neutron network - Set these in a playbook/task - can be set manually.
+# Only "name" or "uuid" is needed, uuid will take preference if both are specified.
+# The cleaning network is not required to be set - it will default to the same as
+# the provisioning network if not specified.
+# ironic_neutron_provisioning_network_uuid: "UUID for provisioning network in neutron"
+# ironic_neutron_cleaning_network_uuid: "UUID for cleaning network in neutron"
+# ironic_neutron_provisioning_network_name: "Name of provisioning network in neutron"
+# ironic_neutron_cleaning_network_name: "Name of cleaning network in neutron"
+
+# Integrated Openstack configuration
+ironic_enabled_network_interfaces_list: "flat,noop{{ (ironic_neutron_provisioning_network_uuid is defined) | ternary(',neutron','') }}"
+ironic_default_network_interface: "{{ (ironic_neutron_provisioning_network_uuid is defined) | ternary('neutron','flat') }}"
+ironic_auth_strategy: keystone
+ironic_sync_power_state_interval: "{{ (ironic_standalone | bool) | ternary('-1', '60') }}"
+ironic_db_connection_string: "mysql+pymysql://{{ ironic_galera_user }}:{{ ironic_mysql_password }}@{{ ironic_galera_address }}/ironic"
+
+# Ironic db tuning
+ironic_db_max_overflow: 200
+ironic_db_max_pool_size: 500
+ironic_db_pool_timeout: 30
+ironic_db_min_pool_size: 100
+ironic_db_max_retries: 5
+ironic_db_retry_interval: 2
+ironic_db_inc_retry_interval: true
+ironic_db_max_retry_interval: 2
+
+# Common configuration
+ironic_node_name: ironic
+
+ironic_tftpboot_cephfs_dir: "/ironic_tftpboot"
+ironic_tftpboot_dir: "/tftpboot/"
+
+ironic_tftp_server_address: "{{ ansible_host }}"
+
+ironic_amqp_durable_queues: true
+ironic_rabbit_ha_queues: true
+
+### OpenStack Services to integrate with
+
+# Glance
+ironic_glance_service_project_name: "{{ glance_service_project_name | default('service') }}"
+ironic_glance_service_project_domain_id: "{{ glance_service_project_domain_id | default('default') }}"
+ironic_glance_keystone_auth_plugin: "{{ glance_keystone_auth_plugin | default('password') }}"
+ironic_glance_service_user_name: "{{ glance_service_user_name | default('glance') }}"
+ironic_glance_service_user_domain_id: "{{ glance_service_user_domain_id | default('default') }}"
+ironic_glance_keystone_auth_url: "{{ keystone_auth_url | default('http://localhost:5000/v3') }}"
+
+# Neutron
+ironic_neutron_auth_strategy: "{{ ironic_auth_strategy }}"
+
+# pxe boot
+ironic_pxe_append_params: "nofb nomodeset vga=normal coreos.autologin"
+
+# Ironic Packages
+ironic_api_distro_packages:
+  - openstack-ironic-api
+  - python-ironicclient
+
+ironic_conductor_distro_packages:
+  - openstack-ironic-conductor
+
+ironic_inspect_distro_packages:
+  - openstack-ironic-inspector
+
+ironic_packages_list: >
+  {%- set package_list = [] %}
+  {%- if ironic_services['ironic-api']['group'] in group_names %}
+  {%-   set package_list = package_list + ironic_api_distro_packages %}
+  {%- endif %}
+  {%- if ironic_services['ironic-conductor']['group'] in group_names %}
+  {%-   set package_list = package_list + ironic_conductor_distro_packages %}
+  {%- endif %}
+  {%- if ironic_services['ironic-inspector']['group'] in group_names %}
+  {%-   set package_list = package_list + ironic_inspect_distro_packages %}
+  {%- endif %}
+  {{- package_list -}}
+
+# Ironic Program and Service names
+ironic_services:
+  ironic-api:
+    group: ironic-api
+    service_name: openstack-ironic-api
+  ironic-conductor:
+    group: ironic-conductor
+    service_name: openstack-ironic-conductor
+  ironic-inspector:
+    group: ironic-inspector
+    service_name: openstack-ironic-inspector
+  ironic-inspector-dnsmasq:
+    group: ironic-inspector-dnsmasq
+    service_name: openstack-ironic-inspector-dnsmasq
+
+filtered_ironic_services: |-
+  {% set services = [] %}
+  {% for key, value in ironic_services.items() %}
+  {%   if (value['group'] in group_names) %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}
+
+
+# Ironic drivers
+ironic_driver_types:
+  agent_ipmitool:
+    hardware_type: ipmi
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: ipmitool
+    power: ipmitool
+  pxe_ipmitool:
+    hardware_type: ipmi
+    boot: pxe
+    deploy: iscsi
+    inspect: inspector
+    management: ipmitool
+    power: ipmitool
+
+# driver definitions
+ironic_drivers_enabled:
+  - agent_ipmitool
+  - pxe_ipmitool
+
+filtered_ironic_drivers: |-
+  {% set concat_drivers = [] %}
+  {% for driver in ironic_drivers_enabled %}
+  {%   if driver in ironic_driver_types.keys() %}
+  {%     set _ = concat_drivers.append(ironic_driver_types[driver]) %}
+  {%   endif %}
+  {% endfor %}
+  {{ concat_drivers }}
+
+# HAproxy
+haproxy_bind_on_non_local: true
+
+### template parameters
+syslog_udp_port: "5140"
+syslog_server: "{{ api_interface_address }}"
+syslog_haproxy_facility: "local1"
+
+haproxy_max_connections: "4000"
+
+haproxy_client_timeout: "1m"
+haproxy_server_timeout: "1m"
+
+haproxy_defaults_balance: "roundrobin"
+
+haproxy_stats_port: "1984"
+
+haproxy_user: "openstack"
+haproxy_password: "openstack"
+
+haproxy_glance_api_client_timeout: "6h"
+haproxy_glance_api_server_timeout: "6h"
+
+# BMS GPU pci devices config
+pci_devices:
+  - vendor_id: "10de"
+    product_id: "1eb8"
+    name: "BMGPU_T4_16G"
+  - vendor_id: "10de"
+    product_id: "1db4"
+    name: "BMGPU_V100_16G"
+

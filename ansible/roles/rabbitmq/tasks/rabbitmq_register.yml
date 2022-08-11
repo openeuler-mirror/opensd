@@ -1,0 +1,51 @@
+---
+- name: Ensure default rabbitmq guest user is removed
+  rabbitmq_user:
+    node: "rabbit@{{ ansible_hostname }}"
+    user: guest
+    state: absent
+
+- name: Ensure default rabbitmq guest user is removed
+  rabbitmq_user:
+    node: "rabbit@{{ ansible_hostname }}"
+    user: guest
+    state: absent
+
+- name: Setup Openstack MQ User(RabbitMQ)
+  block:
+    - name: Add Openstack RabbitMQ vhost
+      rabbitmq_vhost:
+        name: "{{ oslomsg_openstack_vhost }}"
+        state: "present"
+
+    - name: Apply Openstack RabbitMQ vhost policies
+      rabbitmq_policy:
+        name: "{{ item.name }}"
+        pattern: "{{ item.pattern }}"
+        priority: "{{ item.priority | default(0) }}"
+        tags: "{{ item.tags }}"
+        vhost: "{{ oslomsg_openstack_vhost }}"
+      loop: "{{ rabbitmq_policies }}"
+
+    - name: Add Openstack RabbitMQ user
+      rabbitmq_user:
+        user: "{{ oslomsg_openstack_user }}"
+        password: "{{ oslomsg_openstack_password }}"
+        vhost: "{{ oslomsg_openstack_vhost }}"
+        configure_priv: ".*"
+        read_priv: ".*"
+        write_priv: ".*"
+        tags: "administrator"
+        state: "present"
+        force: false
+      no_log: true
+
+    - name: Verify password changed
+      command: "rabbitmqctl authenticate_user {{ oslomsg_openstack_user }} {{ oslomsg_openstack_password }}"
+      register: user_password_changed
+      failed_when: false
+
+    - name: Set password when changed
+      command: "rabbitmqctl change_password {{ oslomsg_openstack_user }} {{ oslomsg_openstack_password }}"
+      when:
+        - user_password_changed.rc != 0

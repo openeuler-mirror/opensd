@@ -1,0 +1,7 @@
+---
+# NOTE We use failed_when as true when perform "miner db init", Because there 
+# is an error field in the command output. Remove failed_when we fix bug about
+# tenant_create of miner.
+- name: Perform a DB init
+  command: "/usr/bin/miner-manage db init"
+  failed_when: false

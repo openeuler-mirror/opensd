@@ -1,0 +1,15 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: config.yml
+
+- include_tasks: bootstrap.yml
+  when: not galera_deployed | bool
+
+- include_tasks: setup.yml
+  when:
+    - galera_deployed | bool
+
+- include_tasks: check.yml
+  when:
+    - galera_deployed | bool
+    - not galera_ignore_cluster_state | bool

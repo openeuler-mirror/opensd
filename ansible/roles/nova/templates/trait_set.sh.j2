@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -o xtrace
+
+source /root/openrc
+
+export trait_name_vgpu="{{ trait_name_vgpu }}"
+export trait_name_normal="{{ trait_name_normal }}"
+export gpu_hosts=$1
+export normal_hosts=$2
+
+# 创建trait
+openstack --os-placement-api-version 1.6 trait create $trait_name_vgpu
+openstack --os-placement-api-version 1.6 trait create $trait_name_normal
+
+# 为GPU计算节点添加trait
+for host in ${gpu_hosts}; do
+hypervisor_uuid=$(nova hypervisor-list | grep $host | awk '{print $2}')
+openstack --os-placement-api-version 1.6 resource provider trait set $hypervisor_uuid --trait $trait_name_vgpu
+done
+
+# 为普通计算节点添加trait
+for host in ${normal_hosts}; do
+hypervisor_uuid=$(nova hypervisor-list | grep $host | awk '{print $2}')
+openstack --os-placement-api-version 1.6 resource provider trait set $hypervisor_uuid --trait $trait_name_normal
+done
+
+set +o xtrace

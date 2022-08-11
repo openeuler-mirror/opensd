@@ -1,0 +1,21 @@
+---
+- name: Install lsutil for using CMD lspci
+  package:
+    name: pciutils
+    state: present
+  register: packages_install
+  until: packages_install is success
+
+- name: get gpu device
+  shell: lspci | grep NVIDIA | sed -n "1p" | awk '{print $1}'
+  register: gpu_device
+  failed_when: gpu_device.rc != 0
+
+- name: Check where passthrough is set
+  shell: lspci -vvv -s {{ gpu_device.stdout }} | grep "Kernel driver in use" | awk '{print $NF}'
+  register: kernel_driver
+  failed_when: kernel_driver.rc != 0
+
+- name: Run pci passthrough auto script
+  script: "files/pci_passthrough.py"
+  when: kernel_driver.stdout != "vfio-pci"

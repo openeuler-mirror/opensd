@@ -1,0 +1,413 @@
+---
+nova_barbican_enabled: False
+
+## Verbosity Options
+debug: "{{ openstack_logging_debug }}"
+nova_setup_host: "{{ groups[nova_cell_conductor_group][0] }}"
+nova_management_address: "{{ api_interface_address }}"
+
+# Name of the virtual env to deploy into
+nova_bin: "/usr/bin"
+
+nova_fatal_deprecations: False
+
+## Nova user information
+nova_system_user_name: nova
+nova_system_group_name: nova
+nova_system_shell: /bin/bash
+nova_system_comment: nova system user
+nova_system_home_folder: "/var/lib/{{ nova_system_user_name }}"
+nova_log_dir: "/var/log/nova"
+
+nova_lock_path: "/var/lock/nova"
+
+## Database info
+nova_db_setup_host: "{{ groups[nova_cell_conductor_group][0] }}"
+nova_cell_mysql_user: nova
+nova_cell_database_name: nova
+nova_db_max_overflow: 200
+nova_db_max_pool_size: 500
+nova_db_pool_timeout: 30
+nova_db_min_pool_size: 100
+nova_db_max_retries: 5
+nova_db_retry_interval: 2
+nova_db_inc_retry_interval: true
+nova_db_max_retry_interval: 2
+
+## DB API
+nova_api_mysql_user: nova_api
+nova_api_database_name: nova_api
+nova_api_db_max_overflow: 200
+nova_api_db_max_pool_size: 500
+nova_api_db_pool_timeout: 30
+nova_api_db_min_pool_size: 100
+nova_api_db_max_retries: 5
+nova_api_db_retry_interval: 2
+nova_api_db_inc_retry_interval: true
+nova_api_db_max_retry_interval: 2
+
+## DB Cells
+nova_cell0_database_name: "nova_cell0"
+
+## Configuration for RPC communications
+nova_rpc_thread_pool_size: 64
+nova_rpc_conn_pool_size: 30
+nova_rpc_response_timeout: 200
+nova_rpc_cast_timeout: 60
+
+## Nova virtualization Types
+# The nova_virt_types dictionary contains global overrides used for
+#  specific compute types. Every variable inside of this dictionary
+#  will become an ansible fact. This gives the user the option to set
+#  or customize things based on their needs without having to redefine
+#  this entire data structure. Every supported compute type will be
+#  have its specific variable requirements set under its short name.
+nova_virt_types:
+  kvm:
+    nova_compute_driver: libvirt.LibvirtDriver
+    nova_scheduler_tracks_instance_changes: True
+  qemu:
+    nova_compute_driver: libvirt.LibvirtDriver
+    nova_scheduler_tracks_instance_changes: True
+    nova_cpu_mode: "none"
+  ironic:
+    nova_compute_driver: ironic.IronicDriver
+    nova_scheduler_tracks_instance_changes: False
+
+# If this is not set, then the playbook will try to guess it.
+#nova_virt_type: kvm
+
+## Nova Auth
+nova_service_region: RegionOne
+nova_service_project_name: "service"
+nova_service_project_domain_id: default
+nova_service_user_domain_id: default
+nova_service_user_name: "nova"
+nova_service_role_name: "admin"
+
+## Keystone authentication middleware
+nova_keystone_auth_plugin: password
+
+## Nova enabled apis
+nova_enabled_apis: "osapi_compute,metadata"
+
+## Nova v2.1
+nova_service_name: nova
+nova_service_type: compute
+nova_api_port: 8774
+nova_service_description: "Nova Compute Service"
+nova_service_publicurl: "http://{{ opensd_vip_address }}:{{ nova_api_port }}/v2.1"
+nova_service_internalurl: "http://{{ opensd_vip_address }}:{{ nova_api_port }}/v2.1"
+nova_service_adminurl: "http://{{ opensd_vip_address }}:{{ nova_api_port }}/v2.1"
+
+## Nova cinder
+nova_cross_az_attach: False
+
+## Nova novnc
+nova_novncproxy_port: 6080
+nova_novncproxy_base_url: "http://{{ external_fqdn if external_fqdn is defined and external_fqdn is not none and external_fqdn != '' else cell_vip_address }}:{{ nova_novncproxy_port }}/vnc_auto.html"
+nova_novncproxy_vncserver_proxyclient_address: "{{ api_interface_address }}"
+nova_novncproxy_vncserver_listen: "{{ api_interface_address }}"
+nova_novncproxy_agent_enabled: True
+vnc_auth_schemes: "none,vnc"
+
+## Nova metadata
+nova_metadata_port: 8775
+nova_metadata_proxy_enabled: "{{ nova_network_services[nova_network_type]['metadata_proxy_enabled'] | bool }}"
+
+## Nova compute
+nova_enable_instance_password: True
+nova_force_config_drive: True
+
+## Nova placement
+nova_placement_service_enabled: True
+nova_placement_service_user_domain_id: Default
+nova_placement_service_project_domain_id: Default
+nova_placement_service_interface: internal
+nova_placement_service_username: placement
+nova_placement_service_name: placement
+nova_placement_service_role_name: "{{ nova_service_role_name }}"
+nova_placement_service_type: placement
+nova_placement_service_project_name: "{{ nova_service_project_name }}"
+nova_placement_service_region: "{{ nova_service_region }}"
+nova_placement_service_description: "Openstack Placement Service"
+nova_placement_service_publicurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+nova_placement_service_internalurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+nova_placement_service_adminurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+
+## Nova libvirt
+libvirt_service_name: libvirtd
+# Warning: If nova_libvirt_inject_key or nova_libvirt_inject_password are enabled for Ubuntu compute hosts
+# then the kernel will be made readable to nova user (a requirement for libguestfs).
+# See Launchpad bugs 1507915 (Nova), 759725 (Ubuntu), and http://libguestfs.org/guestfs-faq.1.html
+nova_libvirt_inject_key: False
+# inject partition options:
+#  -2 => disable, -1 => inspect (libguestfs only), 0 => not partitioned, >0 => partition number
+nova_libvirt_inject_partition: -2
+nova_libvirt_inject_password: False
+nova_libvirt_disk_cachemodes: '{{ nova_libvirt_images_rbd_pool is defined | ternary("network=none", "") }}'
+nova_libvirt_hw_disk_discard: '{{ nova_libvirt_images_rbd_pool is defined | ternary("unmap", "ignore") }}'
+
+nova_libvirtd_debug_log_filters: "3:remote 4:event 3:json 3:rpc"
+nova_libvirtd_listen_tls: 0
+nova_libvirtd_listen_tcp: 1
+nova_libvirtd_listen_addr: 0.0.0.0
+nova_libvirtd_tcp_port: 16509
+libvirt_group: libvirt
+nova_libvirtd_auth_tcp: none
+
+## Nova global config
+nova_max_age: 0
+nova_remove_unused_resized_minimum_age_seconds: 3600
+nova_image_cache_manager_interval: 0
+nova_resume_guests_state_on_host_boot: False
+# nova_default_schedule_zone: nova
+
+# Comma separated list of Glance API servers
+nova_glance_api_servers: "http://{{ opensd_vip_address }}:{{ glance_api_port }}"
+
+nova_network_type: linuxbridge
+
+nova_network_services:
+  linuxbridge:
+    use_forwarded_for: False
+    metadata_proxy_enabled: True
+  nuage:
+    use_forwarded_for: True
+    metadata_proxy_enabled: True
+    ovs_bridge: alubr0
+  calico:
+    use_forwarded_for: True
+    metadata_proxy_enabled: False
+
+# Nova quota
+nova_quota_cores: -1
+nova_quota_injected_file_content_bytes: -1
+nova_quota_injected_file_path_length: -1
+nova_quota_injected_files: -1
+nova_quota_instances: -1
+nova_quota_key_pairs: -1
+nova_quota_metadata_items: -1
+nova_quota_ram: -1
+nova_quota_server_group_members: -1
+nova_quota_server_groups: -1
+
+# Nova Scheduler
+nova_cpu_allocation_ratio: 3.0
+nova_disk_allocation_ratio: 1.0
+nova_max_instances_per_host: 50
+nova_max_io_ops_per_host: 10
+nova_ram_allocation_ratio: 1.0
+nova_ram_weight_multiplier: 5.0
+nova_reserved_host_disk_mb: 2048
+
+nova_scheduler_driver_task_period: 60
+nova_scheduler_host_subset_size: 10
+nova_scheduler_max_attempts: 5
+nova_scheduler_default_filters: >-
+  RetryFilter,
+  AvailabilityZoneFilter,
+  RamFilter,
+  AggregateRamFilter,
+  ComputeFilter,
+  AggregateCoreFilter,
+  DiskFilter,
+  AggregateDiskFilter,
+  AggregateNumInstancesFilter,
+  AggregateIoOpsFilter,
+  ComputeCapabilitiesFilter,
+  ImagePropertiesFilter,
+  ServerGroupAntiAffinityFilter,
+  ServerGroupAffinityFilter,
+  NUMATopologyFilter,
+  PciPassthroughFilter,
+  AggregateMultiTenancyIsolation,
+  DedicatedHostFilter,
+  AggregateInstanceExtraSpecsFilter
+nova_scheduler_driver: filter_scheduler
+nova_scheduler_available_filters: nova.scheduler.filters.all_filters
+nova_scheduler_weight_classes: nova.scheduler.weights.all_weighers
+nova_reserved_host_memory_mb: 2048
+nova_vcpu_pin_set: "{{ ansible_processor_vcpus // 20 + 7 if ansible_processor_vcpus > 20 else 2 }}-{{ ansible_processor_vcpus - 1 }}"
+vcpu_reserve_num: "
+  {% set reserve_num = ansible_processor_vcpus // 20 + 7  if ansible_processor_vcpus > 20 else 2 %}
+  {% set nums = reserve_num if reserve_num|int % 2 == 0 else reserve_num|int + 1 %}
+  {{ nums }}"
+
+# This should be tuned depending on the number of compute hosts present in the
+# deployment. Large clouds may wish to disable automatic discovery by setting
+# this value to -1.
+nova_discover_hosts_in_cells_interval: "{{ 300 if groups['nova-compute'] | length > 10 else 60 }}"
+
+# Nova Ceph rbd
+# Enble and define nova_libvirt_images_rbd_pool to use rbd as nova backend
+#nova_libvirt_images_rbd_pool: vms
+#nova_ceph_client_uuid: "cinder"
+
+## General Nova configuration
+# If ``nova_osapi_compute_workers`` is unset the system will use half the number of available VCPUS to
+# compute the number of api workers to use.
+# nova_osapi_compute_workers: 16
+
+# If ``nova_conductor_workers`` is unset the system will use half the number of available VCPUS to
+# compute the number of api workers to use.
+# nova_conductor_workers: 16
+
+# If ``nova_metadata_workers`` is unset the system will use half the number of available VCPUS to
+# compute the number of api workers to use.
+# nova_metadata_workers: 16
+
+# If ``nova_scheduler_workers`` is unset the system will use half the number of available VCPUS to
+# compute the number of api workers to use.
+# nova_scheduler_workers: 16
+
+## Cap the maximun number of threads / workers when a user value is unspecified.
+nova_api_threads_max: 16
+nova_api_threads: "{{ [[ansible_processor_vcpus|default(2) // 2, 1] | max, nova_api_threads_max] | min }}"
+
+## Service Name-Group Mapping
+nova_services:
+  nova-compute:
+    group: nova-compute
+    service_name: openstack-nova-compute
+    start_order: 5
+  ironic-nova-compute:
+    group: compute-cell1-ironic
+    service_name: openstack-nova-compute
+    start_order: 5
+  nova-novncproxy:
+    group: "{{ nova_cell_novncproxy_group }}"
+    service_name: openstack-nova-novncproxy
+    start_order: 4
+  nova-conductor:
+    group: nova-conductor
+    service_name: openstack-nova-conductor
+    start_order: 2
+
+filtered_nova_services: |-
+  {% set services = [] %}
+  {% for key, value in nova_services.items() %}
+  {%   if (value['group'] in group_names) %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+# Nova package info
+nova_common_packages:
+  - genisoimage
+  - python-openstackclient
+  - python-novaclient
+  - python-nova
+  - openstack-nova-novncproxy
+  - openstack-nova-common
+  - python2-PyMySQL
+  - python-memcached
+nova_compute_packages_x86_64:
+  - openstack-nova-compute
+  - bridge-utils
+  - device-mapper-multipath
+  - dosfstools
+  - iscsi-initiator-utils
+  - kpartx
+nova_compute_packages_aarch64:
+  - openstack-nova-compute
+  - bridge-utils
+  - device-mapper-multipath
+  - dosfstools
+  - iscsi-initiator-utils
+  - kpartx
+nova_conductor_packages:
+  - openstack-nova-conductor
+nova_compute_ironic_packages:
+  - python-ironicclient
+nova_package_list: |-
+  {% set packages = nova_common_packages %}
+  {% if nova_services['nova-compute']['group'] in group_names or nova_services['ironic-nova-compute']['group'] in group_names %}
+  {% if ansible_architecture == 'aarch64' %}
+  {% set _ = packages.extend(nova_compute_packages_aarch64) %}
+  {% else %}
+  {% set _ = packages.extend(nova_compute_packages_x86_64) %}
+  {% endif %}
+  {% endif %}
+  {% if nova_services['nova-conductor']['group'] in group_names %}
+  {% set _ = packages.extend(nova_conductor_packages) %}
+  {% endif %}
+  {% if (nova_services['nova-compute']['group'] in group_names) %}
+  {% if nova_virt_type == 'ironic' %}
+  {% set _ = packages.extend(nova_compute_ironic_packages) %}
+  {% endif %}
+  {% endif %}
+  {{ packages }}
+nova_package_state: "present"
+
+# Libvirt package info
+libvirt_common_packages:
+  - nc
+  - libvirt-python
+  - nfs-utils
+  - python-libguestfs
+  - sysfsutils
+libvirt_packages_x86_64:
+  - libvirt-daemon-kvm
+  - libvirt-daemon-driver-qemu
+  - libvirt-client
+  - qemu-kvm-ev
+  - qemu-img-ev
+libvirt_packages_aarch64:
+  - libvirt
+  - qemu-kvm-ma
+  - qemu-kvm-common-ma
+  - qemu-kvm-tools-ma
+  - qemu-img-ma
+libvirt_package_list: |-
+  {% set packages = libvirt_common_packages %}
+  {% if nova_services['nova-compute']['group'] in group_names or nova_services['ironic-nova-compute']['group'] in group_names %}
+  {% if ansible_architecture == 'aarch64' %}
+  {% set _ = packages.extend(libvirt_packages_aarch64) %}
+  {% else %}
+  {% set _ = packages.extend(libvirt_packages_x86_64) %}
+  {% endif %}
+  {% endif %}
+  {{ packages }}
+libvirt_package_state: "present"
+
+nova_amqp_durable_queues: true
+nova_rabbit_ha_queues: true
+
+# Nova notifications configuration
+nova_notify_on_state_change: vm_and_task_state
+nova_notification_default_level: DEBUG
+nova_notification_format: unversioned
+
+# Nova virtual machine monitor configuration
+nova_enable_vm_monitor: true
+monitor_is_fatal: true
+monitor_auto_disable_service: true
+monitor_check_interval: 30
+nova_monitor_device_type: tcp
+nova_telegraf_port: 5555
+
+# HAproxy
+haproxy_bind_on_non_local: true
+
+### template parameters
+syslog_udp_port: "5140"
+syslog_server: "{{ api_interface_address }}"
+syslog_haproxy_facility: "local1"
+
+haproxy_max_connections: "4000"
+
+haproxy_client_timeout: "1m"
+haproxy_server_timeout: "1m"
+
+haproxy_defaults_balance: "roundrobin"
+
+haproxy_stats_port: "1984"
+
+haproxy_user: "openstack"
+haproxy_password:
+
+haproxy_glance_api_client_timeout: "6h"
+haproxy_glance_api_server_timeout: "6h"

@@ -1,0 +1,14 @@
+---
+- name: Restart mariadb server (ALL)
+  service:
+    name: mariadb
+    state: restarted
+    enabled: true
+  register: mariadb_restart
+  until: mariadb_restart is success
+  retries: 6
+  delay: 5
+  delegate_to: "{{ item }}"
+  with_items:
+    - "{{ ansible_play_hosts }}"
+  run_once: true

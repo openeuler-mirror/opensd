@@ -1,0 +1,10 @@
+---
+- import_playbook: gather-facts.yml
+
+- name: Apply role bootstrap
+  gather_facts: false
+  hosts:
+    - all
+  roles:
+    - { role: bootstrap,
+        tags: bootstrap }

@@ -1,0 +1,25 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: nova_virt_detect.yml
+  when: inventory_hostname in groups['compute-added']
+
+- include_tasks: nova_cell_pre_install.yml
+  when: inventory_hostname in groups['compute-added']
+
+- include_tasks: nova_compute_libvirt.yml
+  when: inventory_hostname in groups['compute-added']
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: nova_cell_install.yml
+  when: inventory_hostname in groups['compute-added']
+
+- include_tasks: nova_compute_sshkey.yml
+  when: nova_services['nova-compute']['group'] in group_names
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: nova_cell_v2_discover.yml
+  when: inventory_hostname == groups[nova_cell_conductor_group][0]

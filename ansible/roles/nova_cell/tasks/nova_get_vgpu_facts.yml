@@ -1,0 +1,36 @@
+---
+- name: Get vgpu multi types for gpu server
+  set_fact:
+   multi_vgpu_types: "{{ hostvars[inventory_hostname]['vgpu_types'].split(',') | replace('_', '-') }}"
+
+- name: Drop get_multitypes_for_vgpu.sh auto scrtipt
+  template:
+    src: "get_multitypes_for_vgpu.sh.j2"
+    dest: "/tmp/get_multitypes_for_vgpu.sh"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+- name: Run auto script get_multitypes_for_vgpu.sh
+  command:  /tmp/get_multitypes_for_vgpu.sh
+  register: multi_type_vgpu_result
+
+- name: Get vgpu_types pare
+  set_fact:
+   nova_confs: "{{ multi_type_vgpu_result.stdout.split('\n') }}"
+
+- name: Initialize local facts for GPU server
+  ini_file:
+    path: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "nova"
+    option: "{{ item.split('=')[0]}}"
+    value: "{{ item.split('=')[1] }}"
+  with_items: "{{ nova_confs }}"
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+  tags:
+    - always
+

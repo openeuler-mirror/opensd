@@ -1,0 +1,16 @@
+ServerRoot "/etc/httpd"
+Listen "{{ ironic_tftp_server_address }}:{{ httproot_service_port }}"
+Include conf.modules.d/*.conf
+User apache
+Group apache
+ServerName "{{ ansible_fqdn }}"
+DocumentRoot "{{ ironic_system_home_folder }}/httproot"
+<Directory "{{ ironic_system_home_folder }}/httproot">
+Options Indexes FollowSymLinks
+Require all granted
+</Directory>
+ErrorLog "logs/error_log"
+CustomLog "logs/access_log" "%h %l %u %t \"%r\" %>s %b"
+LogLevel warn
+AddDefaultCharset UTF-8
+EnableSendfile on

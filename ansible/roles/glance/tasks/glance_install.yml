@@ -1,0 +1,64 @@
+---
+- name: Ensure glance packages installed
+  package:
+    name: "{{ glance_package_name}}"
+    state: "{{ glance_package_state }}"
+  register: packages_install
+  until: packages_install is success
+  retries: 5
+  delay: 2
+  notify: Restart glance services
+
+- name: Get az cephmon compose pairs
+  set_fact:
+    cephmon_compose_azs: |
+      {% set ceph_mons = [] %}
+      {% for comp in az_cephmon_compose %}
+      {% if ceph_mons[0] is not defined or comp.ceph_mon_host not in ceph_mons | json_query('[*].ceph_mon_host') %}
+      {% set _ = ceph_mons.append(comp) %}
+      {% endif %}
+      {% endfor %}
+      {{ ceph_mons | map(attribute='availability_zone') | list }}
+
+- name: Copying over glance-*.conf
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/{{ item }}.conf.j2"
+      - "{{ node_custom_config }}/global.conf"
+      - "{{ node_custom_config }}/glance.conf"
+      - "{{ node_custom_config }}/glance/{{ item }}.conf"
+      - "{{ node_custom_config }}/glance/{{ inventory_hostname }}/{{ item }}.conf"
+    dest: "/etc/glance/{{ item }}.conf"
+    mode: "0660"
+  become: true
+  with_items:
+    - glance-api
+    - glance-registry
+  notify:
+    - Restart glance services
+
+- name: Copying over glance api paste file
+  template:
+    src: "{{ item }}"
+    dest: "/etc/glance/glance-api-paste.ini"
+    owner: root
+    group: "{{ glance_system_user_name }}"
+    mode: "0660"
+  with_first_found:
+    - "{{ node_custom_config }}/glance/glance-api-paste.ini"
+    - "glance-api-paste.ini.j2"
+  notify:
+    - Restart glance services
+
+- name: Copying over glance registry paste file
+  template:
+    src: "{{ item }}"
+    dest: "/etc/glance/glance-registry-paste.ini"
+    owner: root
+    group: "{{ glance_system_user_name }}"
+    mode: "0660"
+  with_first_found:
+    - "{{ node_custom_config }}/glance/glance-registry-paste.ini"
+    - "glance-registry-paste.ini.j2"
+  notify:
+    - Restart glance services

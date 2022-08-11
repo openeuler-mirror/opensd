@@ -1,0 +1,22 @@
+#! /usr/bin/expect
+
+# 执行ssh-keygen命令,如果需要就解注释
+#spawn ssh-keygen
+#expect "id_rsa"
+#send "\r"
+#expect "phrase"
+#send "\r"
+#expect "again"
+#send "\r"
+#interact
+
+# 做互信,假设密码为"123123"
+set f [open /etc/opensd/auto_ssh_host_ip r]
+while { [gets $f ip]>=0} {
+    spawn ssh-copy-id root@$ip
+    expect {
+        "*yes/no" {send "yes\r";exp_continue}
+        "*password:" {send "123123\r";exp_continue}
+        }
+}
+close $f

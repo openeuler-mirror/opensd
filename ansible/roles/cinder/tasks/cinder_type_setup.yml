@@ -1,0 +1,61 @@
+---
+# NOTE (weimeng): Cinder type should use some ansible plugins to manage,
+# but ansible core module has no corresponding modules. In the futuer,
+# we should finish writing plugins and then replace these tasks.
+
+- name: Check whether cinder rbd type is exist
+  shell: >
+    cinder --os-username "{{ keystone_admin_user_name }}" \
+           --os-tenant-name "{{ keystone_admin_tenant_name }}" \
+           --os-password "{{ keystone_admin_password }}" \
+           --os-auth-url "{{ keystone_auth_url }}" \
+           --os-user-domain-name "Default" \
+           --os-project-domain-name "Default" \
+           type-list
+  no_log: true
+  register: cinder_rbd_type
+  changed_when: false
+  when:
+    - cinder_rbd_type_name is defined
+    - cinder_rbd_type_name != ""
+
+- name: Create cinder type
+  shell: >
+    cinder --os-username "{{ keystone_admin_user_name }}" \
+           --os-tenant-name "{{ keystone_admin_tenant_name }}" \
+           --os-password "{{ keystone_admin_password }}" \
+           --os-auth-url "{{ keystone_auth_url }}" \
+           --os-user-domain-name "Default" \
+           --os-project-domain-name "Default" \
+           type-create "{{ cinder_rbd_type_name }}"
+  no_log: true
+  register: cinder_type_create
+  until: cinder_type_create is success
+  retries: 5
+  delay: 10
+  when:
+    - cinder_rbd_type_name is defined
+    - cinder_rbd_type_name != ""
+    - cinder_rbd_type.stdout.find(' ' + cinder_rbd_type_name + ' ') == -1
+
+- name: Set cinder rbd type volume backend
+  shell: >
+    cinder --os-username "{{ keystone_admin_user_name }}" \
+           --os-tenant-name "{{ keystone_admin_tenant_name }}" \
+           --os-password "{{ keystone_admin_password }}" \
+           --os-auth-url "{{ keystone_auth_url }}" \
+           --os-user-domain-name "Default" \
+           --os-project-domain-name "Default" \
+           type-key "{{ cinder_rbd_type_name }}" set \
+           volume_backend_name={{ cinder_rbd_backend_name }}
+  no_log: true
+  register: cinder_set_backend
+  until: cinder_set_backend is success
+  retries: 5
+  delay: 10
+  when:
+    - cinder_rbd_type_name is defined
+    - cinder_rbd_type_name != ""
+    - cinder_rbd_backend_name is defined
+    - cinder_rbd_backend_name != ""
+    - cinder_rbd_type.stdout.find(' ' + cinder_rbd_type_name + ' ') == -1

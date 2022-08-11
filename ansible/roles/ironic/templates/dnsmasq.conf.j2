@@ -1,0 +1,15 @@
+port=0
+interface={{ ironic_dnsmasq_interface }}
+dhcp-range={{ ironic_dnsmasq_dhcp_range }}
+bind-interfaces
+enable-tftp
+
+dhcp-match=set:efi,option:client-arch,7
+dhcp-match=set:efi,option:client-arch,9
+dhcp-match=aarch64, option:client-arch,11 
+dhcp-boot=tag:aarch64,grubaa64.efi
+dhcp-boot=tag:!aarch64,tag:efi,grubx64.efi
+dhcp-boot=tag:!aarch64,tag:!efi,pxelinux.0
+
+tftp-root=/tftpboot
+log-facility=/var/log/dnsmasq.log

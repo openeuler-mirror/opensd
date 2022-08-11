@@ -1,0 +1,3 @@
+---
+# tasks file for ironic
+- include_tasks: "{{ opensd_action }}.yml"

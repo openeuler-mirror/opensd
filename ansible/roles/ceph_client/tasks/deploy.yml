@@ -1,0 +1,28 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: ceph_install.yml
+
+- include_tasks: ceph_config.yml
+
+- name: Get az cephmon compose pairs
+  set_fact:
+    cephmon_compose_pairs: |
+      {% set ceph_mons = [] %}
+      {% for comp in az_cephmon_compose %}
+      {% if ceph_mons[0] is not defined or comp.ceph_mon_host not in ceph_mons | json_query('[*].ceph_mon_host') %}
+      {% set _ = ceph_mons.append(comp) %}
+      {% endif %}
+      {% endfor %}
+      {{ ceph_mons }}
+
+- include_tasks: ceph_multi_az.yml
+  vars:
+    cephmon_compose: "{{ outer_item }}"
+  with_items: "{{ cephmon_compose_pairs }}"
+  loop_control:
+    loop_var: outer_item
+  when: inventory_hostname in groups['glance-api']
+
+- include_tasks: ceph_auth.yml
+
+- include_tasks: ceph_check.yml

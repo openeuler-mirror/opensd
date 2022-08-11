@@ -1,0 +1,14 @@
+---
+- name: Restart nova services
+  systemd:
+    name: "{{ item.service_name }}"
+    enabled: yes
+    state: "restarted"
+    daemon_reload: yes
+  with_items: "{{ filtered_nova_services }}"
+
+- name: Restart httpd service (placement-api)
+  service:
+    name: httpd
+    state: "restarted"
+    enabled: yes

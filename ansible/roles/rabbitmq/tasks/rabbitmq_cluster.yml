@@ -1,0 +1,60 @@
+---
+- name: Get rabbitmq cluster name
+  shell: |
+    rabbitmqctl -q cluster_status | paste -sd '' - | sed 's/ //g' | grep -oP '(?<={cluster_name,<<").*(?=">>})'
+  args:
+    executable: /bin/bash
+  changed_when: false
+  register: _cluster_name
+
+- name: Set rabbitmq cluster name on primary node
+  command: |
+    rabbitmqctl set_cluster_name {{ rabbitmq_cluster_name }}
+  when:
+    - "ansible_fqdn == rabbitmq_primary_cluster_node"
+    - "_cluster_name.stdout != rabbitmq_cluster_name"
+
+- name: Join cluster on secondary nodes
+  block:
+    - name: Stop rabbitmq app
+      shell: |
+        rabbitmqctl stop_app
+        sleep 5
+      args:
+        executable: /bin/bash
+      tags:
+        # This task must use shell, otherwise the rabbitmqctl
+        # command somehow thinks that the sleep command is a
+        # parameter. Due to this, we skip ansible-lint checks
+        # on this task.
+        - skip_ansible_lint
+
+    - name: Join rabbitmq cluster
+      command: >
+        rabbitmqctl join_cluster "rabbit@{{ rabbitmq_primary_cluster_node.split('.')[0] }}"
+      register: rabbit_join_cluster
+      until: rabbit_join_cluster is success
+      retries: 5
+      delay: 2
+      tags:
+        # This task only gets executed on a condition
+        # in the rabbitmq_cluster.yml file, but ansible-lint
+        # does not seem to realise this and fails this task.
+        # Due to this, we skip ansible-lint checks on this task.
+        - skip_ansible_lint
+
+    - name: Start rabbitmq app
+      command: rabbitmqctl start_app
+      register: rabbit_start_app
+      until: rabbit_start_app is success
+      retries: 5
+      delay: 2
+      tags:
+        # This task only gets executed on a condition
+        # in the rabbitmq_cluster.yml file, but ansible-lint
+        # does not seem to realise this and fails this task.
+        # Due to this, we skip ansible-lint checks on this task.
+        - skip_ansible_lint
+  when:
+    - "ansible_fqdn != rabbitmq_primary_cluster_node"
+    - "_cluster_name.stdout != rabbitmq_cluster_name"

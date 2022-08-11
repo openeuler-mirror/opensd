@@ -1,0 +1,67 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+debug = {{ glance_logging_debug }}
+fatal_deprecations = {{ glance_fatal_deprecations }}
+log_file = /var/log/glance/glance-registry.log
+bind_host = {{ glance_registry_bind_address }}
+bind_port = {{ glance_registry_port }}
+backlog = 4096
+workers = {{ glance_registry_workers | default(glance_api_threads) }}
+api_limit_max = 1000
+limit_param_default = 25
+
+enable_v2_api = {{ glance_enable_v2_api | bool }}
+enable_v2_registry = {{ glance_enable_v2_registry | bool }}
+
+transport_url = {{ rpc_transport_url }}
+
+[database]
+connection = mysql+pymysql://{{ glance_database_user }}:{{ glance_database_password }}@{{ database_address }}:{{ database_port }}/{{ glance_database_name }}
+min_pool_size = {{ glance_db_min_pool_size }}
+max_pool_size = {{ glance_db_max_pool_size }}
+pool_timeout = {{ glance_db_pool_timeout }}
+max_retries = {{ glance_db_max_retries }}
+max_overflow = {{ glance_db_max_overflow }}
+db_retry_interval = {{ glance_db_retry_interval }}
+db_inc_retry_interval = {{ glance_db_inc_retry_interval }}
+db_max_retry_interval = {{ glance_db_max_retry_interval }}
+db_max_retries = {{ glance_db_max_retries }}
+
+[keystone_authtoken]
+auth_type = {{ glance_keystone_auth_plugin }}
+auth_url = {{ keystone_auth_url }}
+www_authenticate_uri = {{ keystone_auth_url }}
+project_domain_id = {{ glance_service_project_domain_id }}
+user_domain_id = {{ glance_service_user_domain_id }}
+project_name = {{ glance_service_project_name }}
+username = {{ glance_service_user_name }}
+password = {{ glance_service_password }}
+region_name = {{ keystone_service_region }}
+
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+token_cache_time = 300
+
+[oslo_messaging_rabbit]
+rabbit_notification_exchange = glance
+rabbit_notification_topic = notifications
+amqp_durable_queues = {{ glance_amqp_durable_queues }}
+rabbit_ha_queues = {{ glance_rabbit_ha_queues }}
+
+[oslo_messaging_notifications]
+driver = messagingv2
+transport_url = {{ notify_transport_url }}
+
+[oslo_policy]
+policy_file = {{ glance_policy_file }}
+policy_default_rule = {{ glance_policy_default_rule }}
+policy_dirs = {{ glance_policy_dirs }}
+
+[paste_deploy]
+flavor = keystone
+
+[profiler]
+enabled = {{ glance_profiler_enabled }}

@@ -1,0 +1,30 @@
+---
+- name: Ensure node_config_directory directory exists
+  file:
+    path: "{{ node_config_directory }}"
+    state: directory
+    mode: 0755
+  become: True
+
+- name: Ensure node_custom_config directory exists
+  file:
+    path: "{{ node_custom_config }}"
+    state: directory
+    mode: 0755
+  become: True
+
+- name: Change state of selinux
+  selinux:
+    policy: targeted
+    state: "{{ selinux_state }}"
+  become: true
+  when:
+    - change_selinux | bool
+    - ansible_os_family == "RedHat"
+
+- name: Reboot
+  command: reboot -f
+  become: True
+  when:
+    - reboot_required is defined
+    - reboot_required | bool

@@ -1,0 +1,48 @@
+#jinja2: trim_blocks: False
+global
+  chroot /var/lib/haproxy
+  user haproxy
+  group haproxy
+  daemon
+  log {{ syslog_server }}:{{ syslog_udp_port }} {{ syslog_haproxy_facility }}
+  maxconn {{ haproxy_max_connections }}
+  stats socket /var/lib/haproxy/stats
+defaults
+  log global
+  mode http
+  option redispatch
+  option httplog
+  option forwardfor
+  retries 3
+  timeout http-request 10s
+  timeout queue 1m
+  timeout connect 10s
+  timeout client {{ haproxy_client_timeout }}
+  timeout server {{ haproxy_server_timeout }}
+  timeout check 10s
+  balance {{ haproxy_defaults_balance }}
+
+listen stats
+   bind {{ ironic_tftp_server_address }}:{{ haproxy_stats_port }}
+   mode http
+   stats enable
+   stats uri /
+   stats refresh 15s
+   stats realm Haproxy\ Stats
+   stats auth {{ haproxy_user }}:{{ haproxy_password }}
+
+{% if enable_ironic | bool %}
+
+listen ironic-api
+  bind {{ ironic_tftp_server_address }}:{{ haproxy_ironic_service_port }}
+{% for host in groups['baremetal'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['ironic_dnsmasq_interface']]['ipv4']['address'] }}:{{ ironic_service_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+
+listen ironic-inspector
+  bind {{ ironic_tftp_server_address }}:{{ haproxy_ironic_inspector_service_port }}
+{% for host in groups['baremetal'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['ironic_dnsmasq_interface']]['ipv4']['address'] }}:{{ ironic_inspector_service_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+
+{% endif %}

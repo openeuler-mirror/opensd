@@ -1,0 +1,11 @@
+[Unit]
+Description=Mount CephFS disk for ironic tftpboot
+
+[Mount]
+What={{ ceph_mon_host[0] }}:{{ ironic_tftpboot_cephfs_dir }}
+Where={{ ironic_tftpboot_dir }}
+Type=ceph
+Options=defaults,name=admin,secret={{ ceph_client_keyrings.stdout_lines[1].split(' = ')[1] }}
+
+[Install]
+WantedBy=multi-user.target

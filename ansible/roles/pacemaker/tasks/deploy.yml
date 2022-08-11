@@ -1,0 +1,5 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: config.yml
+
+- include_tasks: resource.yml

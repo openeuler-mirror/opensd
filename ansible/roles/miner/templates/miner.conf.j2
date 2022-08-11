@@ -1,0 +1,121 @@
+#{{ ansible_managed }}
+
+[DEFAULT]
+debug={{ debug }}
+log_dir={{ miner_log_dir }}
+use_stderr=false
+
+# if dhcp agent auto is true, we will allocate
+# the dhcp agent to the tenant available zone
+# if false scheduler by miner
+dhcp_agent_auto=true
+
+# whether the available zone and the network is isolated or not
+#available_zone_network_isolated=true
+
+# Number of DHCP agents scheduled to host a network. This enables redundant
+# DHCP agents for configured networks.
+dhcp_agents_per_network={{ miner_dhcp_agents_per_network }}
+
+#allow the create volume with param multiattach to allow the two or more
+#instance attach the volume
+allow_volume_multiattach=false
+
+osapi_miner_listen_port={{ osapi_miner_listen_port }}
+
+#callback configuration
+notification_urls={{ miner_notification_urls }}
+notification_exchange={{ miner_report_exchange }}
+notification_type=direct
+notification_routing_key={{ miner_notification_routing_key }}
+
+#report configuration
+report_urls={{ miner_report_urls }}
+report_exchange={{ miner_report_exchange }}
+report_type=direct
+report_routing_key={{ miner_report_routing_key }}
+
+#init data configuration
+tenant_name={{ miner_tenant_name }}
+tenant_username={{ miner_tenant_username }}
+tenant_password={{ miner_tenant_password }}
+
+#available quota
+available_quota={{ miner_available_quota }}
+
+#max create instance job number
+max_handle_instance_job={{ miner_max_handle_instance_job }}
+
+[database]
+use_tpool=false
+idle_timeout=3600
+connection=mysql+pymysql://{{ miner_mysql_user }}:{{ miner_mysql_password }}@{{ opensd_vip_address }}/{{ miner_database_name }}
+sqlalchemy_max_overflow=100
+
+min_pool_size = {{ miner_db_min_pool_size }}
+max_pool_size = {{ miner_db_max_pool_size }}
+pool_timeout = {{ miner_db_pool_timeout }}
+max_retries = {{ miner_db_max_retries }}
+max_overflow = {{ miner_db_max_overflow }}
+db_retry_interval = {{ miner_db_retry_interval }}
+db_inc_retry_interval = {{ miner_db_inc_retry_interval }}
+db_max_retry_interval = {{ miner_db_max_retry_interval }}
+db_max_retries = {{ miner_db_max_retries }}
+
+[patrol]
+messaging_urls={{ miner_messaging_urls }}
+{% if enable_cells | bool %}
+messaging_urls={{ miner_cell_messaging_urls }}
+{% endif %}
+nova_control_exchange={{ miner_exchange }}
+glance_control_exchange={{ miner_exchange }}
+cinder_control_exchange={{ miner_exchange }}
+neutron_control_exchange={{ miner_exchange }}
+warm_control_exchange={{ miner_exchange }}
+notification_topics={{ miner_notification_topics }}
+
+[sentry]
+amqp_durable_queues = true
+rabbit_ha_queues = true
+listen_request_urls={{ sentry_listen_request_urls }}
+request_queues={{ sentry_request_queues }}
+request_exchange={{ sentry_request_exchange }}
+request_routing_key={{ sentry_request_routing_key }}
+request_message_type=direct
+support_gpu = {{ support_gpu }}
+gpu_trait = CUSTOM_VGPU
+
+[keystone_authtoken]
+auth_url = {{ keystone_auth_url }}/v3
+auth_plugin = password
+project_domain_name = default
+user_domain_name = default
+project_name = {{ miner_tenant_name }}
+username = {{ miner_tenant_username }}
+password = {{ keystone_admin_password }}
+
+[service_credentials]
+admin_username = {{ keystone_admin_user_name }}
+admin_password = {{ keystone_admin_password }}
+project_name = {{ miner_tenant_name }}
+project_domain_name = default
+user_domain_name = default
+auth_plugin = password
+auth_url = {{ keystone_auth_url }}/v3
+
+identity_api_version=3
+nova_version=2
+nova_endpoint={{ nova_service_publicurl }}
+glance_version=2
+glance_endpoint={{ glance_service_publicurl }}
+neutron_version=2.0
+neutron_endpoint={{ neutron_service_publicurl }}
+cinder_endpoint={{ cinder_service_publicurl }}
+cinder_version=3
+
+[oslo_concurrency]
+lock_path=/var/lib/miner/lock
+
+[oslo_messaging_rabbit]
+amqp_durable_queues = {{ miner_amqp_durable_queues }}
+rabbit_ha_queues = {{ miner_rabbit_ha_queues }}

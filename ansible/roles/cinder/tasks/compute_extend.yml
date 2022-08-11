@@ -1,0 +1,31 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: cinder_pre_install.yml
+  when: cinder_services['cinder-volume']['group'] in group_names
+
+- include_tasks: cinder_install.yml
+  when: cinder_services['cinder-volume']['group'] in group_names
+
+- name: Install pcs cluster for cinder_volume
+  include_role:
+    name: pacemaker
+    tasks_from: config.yml
+  vars:
+    pcs_cluster_group_name: "cinder_volume_{{ availability_zone }}"
+  when:
+    - cinder_services['cinder-volume']['group'] in group_names
+    - enable_pacemaker | bool
+
+- name: Install pcs cluster for cinder_backup
+  include_role:
+    name: pacemaker
+    tasks_from: config.yml
+  vars:
+    pcs_cluster_group_name: "cinder_backup_{{ availability_zone }}"
+  when:
+    - cinder_services['cinder-backup']['group'] in group_names
+    - enable_pacemaker | bool
+
+# (TODO)
+- include_tasks: cinder_check.yml
+  when: cinder_services['cinder-volume']['group'] in group_names

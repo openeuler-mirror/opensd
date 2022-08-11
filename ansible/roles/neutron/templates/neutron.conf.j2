@@ -1,0 +1,221 @@
+# {{ ansible_managed }}
+{% set neutron_plugin_loaded_base = [] %}
+
+{% for plugin in neutron_plugin_base %}
+  {% if plugin not in ['dns', 'dns_domain_ports'] %}
+      {% set _ = neutron_plugin_loaded_base.append(plugin) %}
+  {% endif %}
+{% endfor %}
+
+# General, applies to all host groups
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+debug = {{ debug }}
+fatal_deprecations = {{ neutron_fatal_deprecations }}
+log_file = {{ neutron_log_dir }}/neutron.log
+enable_meter = True
+is_sdn_arch = False
+
+# Enable monitoring function
+enable_metrics_proxy = true
+force_metadata = true
+
+## Rpc all
+executor_thread_pool_size = {{ neutron_rpc_thread_pool_size }}
+rpc_response_timeout = {{ neutron_rpc_response_timeout }}
+transport_url = {{ rpc_transport_url }}
+
+# Domain to use for building hostnames
+dns_domain = {{ neutron_dns_domain }}
+host = {{ ansible_fqdn }}
+
+# DHCP
+{% if neutron_plugin_type == 'ml2.dragonflow' %}
+# In dragonflow, DHCP is fully distributed, and DHCP agents are not used
+dhcp_agent_notification = False
+{% else %}
+dhcp_agent_notification = True
+dhcp_agents_per_network = {{ dhcp_agents_max }}
+dhcp_lease_duration = -1
+{% endif %}
+
+{% if neutron_services['neutron-server']['group'] in group_names %}
+
+# General, only applies to neutron server host group
+allow_overlapping_ips = True
+vlan_transparent = False
+
+# Plugins
+core_plugin = {{ neutron_plugin_core }}
+{% if neutron_plugin_type.split('.')[0] == 'ml2' %}
+service_plugins = {{ neutron_plugin_loaded_base | join(',') }}
+{% endif %}
+
+l3_distributed_port_binding = {{ l3_distributed_port_binding }}
+
+# MAC address generation for VIFs
+base_mac = fa:16:3e:00:00:00
+mac_generation_retries = 16
+
+# Authentication method
+auth_strategy = keystone
+
+# Drivers
+network_scheduler_driver = {{ neutron_driver_network_scheduler }}
+router_scheduler_driver = {{ neutron_driver_router_scheduler }}
+loadbalancer_pool_scheduler_driver = {{ neutron_driver_loadbalancer_pool_scheduler }}
+
+# Schedulers
+network_auto_schedule = True
+router_auto_schedule = True
+
+# Distributed virtual routing
+router_distributed = {{ neutron_plugins[neutron_plugin_type].router_distributed | default('False') }}
+enable_dvr = {{ neutron_plugins[neutron_plugin_type].router_distributed | default('False') }}
+
+# Agents
+agent_down_time = {{ neutron_agent_down_time }}
+
+{% set num_agent = groups[neutron_services['neutron-dhcp-agent']['group']] | length %}
+
+# L3
+max_l3_agents_per_router = {{ max_l3_router }}
+max_routes = 100
+l3_ha = true
+
+# API
+bind_port = {{ neutron_server_port }}
+bind_host = {{ neutron_management_address }}
+
+# Workers
+api_workers = {{ neutron_api_workers | default(neutron_api_threads) }}
+rpc_workers = {{ neutron_rpc_workers }}
+
+# Metering
+enable_meter_full_eip = {{ enable_meter_full_eip  }}
+enable_meter_port_forwarding = {{enable_meter_port_forwarding}}
+enable_meter_ecs_ipv6 = {{enable_meter_ecs_ipv6}}
+enable_meter = {{ enable_meter  }}
+is_sdn_arch = {{ is_sdn_arch  }}
+
+# Nova notifications
+notify_nova_on_port_status_changes = True
+notify_nova_on_port_data_changes = True
+send_events_interval = 2
+
+# End of [DEFAULT] section
+
+[placement]
+auth_type = password
+username = {{ neutron_service_user_name }}
+password = {{ neutron_service_password }}
+project_name = {{ neutron_service_project_name }}
+user_domain_id = {{ neutron_service_user_domain_id }}
+project_domain_id = {{ neutron_service_project_domain_id }}
+region_name = {{ neutron_service_region }}
+auth_url = {{ keystone_auth_url }}
+endpoint_type = internal
+
+[nova]
+auth_type = {{ nova_keystone_auth_plugin }}
+auth_url = {{ keystone_auth_url }}
+region_name = {{ nova_service_region }}
+project_domain_id = {{ nova_service_project_domain_id }}
+user_domain_id = {{ nova_service_user_domain_id }}
+project_name = {{ nova_service_project_name }}
+username = {{ nova_service_user_name }}
+password = {{ nova_service_password }}
+endpoint_type = internal
+
+# Quotas
+[quotas]
+quota_driver = {{ neutron_driver_quota }}
+quota_items = network,subnet,port
+default_quota = {{ neutron_default_quota }}
+quota_floatingip = {{ neutron_quota_floatingip }}
+quota_health_monitor = {{ neutron_quota_health_monitor }}
+quota_member = {{ neutron_quota_member }}
+quota_network = {{ neutron_quota_network }}
+quota_network_gateway = {{ neutron_quota_network_gateway }}
+quota_packet_filter = {{ neutron_quota_packet_filter }}
+quota_pool = {{ neutron_quota_pool }}
+quota_port = {{ neutron_quota_port }}
+quota_router = {{ neutron_quota_router }}
+quota_security_group = {{ neutron_quota_security_group }}
+quota_security_group_rule = {{ neutron_quota_security_group_rule }}
+quota_subnet = {{ neutron_quota_subnet }}
+quota_vip = {{ neutron_quota_vip }}
+quota_loadbalancer = {{ neutron_quota_loadbalancer }}
+
+# Keystone authentication
+[keystone_authtoken]
+auth_type = {{ neutron_keystone_auth_plugin }}
+auth_url = {{ keystone_auth_url }}
+www_authenticate_uri = {{ keystone_auth_url }}
+project_domain_id = {{ neutron_service_project_domain_id }}
+user_domain_id = {{ neutron_service_user_domain_id }}
+project_name = {{ neutron_service_project_name }}
+username = {{ neutron_service_user_name }}
+password = {{ neutron_service_password }}
+region_name = {{ keystone_service_region }}
+
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+token_cache_time = 300
+
+# Database
+[database]
+connection = mysql+pymysql://{{ neutron_mysql_user }}:{{ neutron_mysql_password }}@{{ database_address }}/{{ neutron_database_name }}?charset=utf8
+min_pool_size = {{ neutron_db_min_pool_size }}
+max_pool_size = {{ neutron_db_max_pool_size }}
+pool_timeout = {{ neutron_db_pool_timeout }}
+max_retries = {{ neutron_db_max_retries }}
+max_overflow = {{ neutron_db_max_overflow }}
+db_retry_interval = {{ neutron_db_retry_interval }}
+db_inc_retry_interval = {{ neutron_db_inc_retry_interval }}
+db_max_retry_interval = {{ neutron_db_max_retry_interval }}
+db_max_retries = {{ neutron_db_max_retries }}
+
+{% endif %}
+
+# Agent
+[agent]
+polling_interval = {{ neutron_agent_polling_interval|default(5) }}
+report_interval = {{ neutron_report_interval|int }}
+root_helper = sudo {{ neutron_bin }}/neutron-rootwrap {{ neutron_conf_dir }}/rootwrap.conf
+
+# Messaging
+[oslo_messaging_rabbit]
+rpc_conn_pool_size = {{ neutron_rpc_conn_pool_size }}
+amqp_durable_queues = {{ neutron_amqp_durable_queues }}
+rabbit_ha_queues = {{ neutron_rabbit_ha_queues }}
+
+# Notifications
+[oslo_messaging_notifications]
+driver = messagingv2
+transport_url = {{ notify_transport_url }}
+
+# Concurrency (locking mechanisms)
+[oslo_concurrency]
+lock_path = {{ neutron_lock_path }}
+
+# TERRAL
+{% if enable_vxlan_network_type | bool %}
+[service_providers]
+service_provider = service_provider = L3_ROUTER_NAT:SDN:networking_terra.l3.terra_l3_flavor.TERRAL3ServiceProvider
+{% endif %}
+
+# FWAAS
+{% if enable_neutron_fwaas | bool %}
+[fwaas]
+driver = iptables
+enabled = True
+{% if neutron_services['neutron-server']['group'] in group_names %}
+enable_sdn = {{ enable_sdn_controller }}
+{% else %}
+conntrack_driver = conntrack
+agent_version = v1
+{% endif %}
+{% endif %}
+

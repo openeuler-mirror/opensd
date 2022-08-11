@@ -1,0 +1,34 @@
+---
+- name: create the system group
+  group:
+    name: "{{ keystone_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the keystone system user
+  user:
+    name: "{{ keystone_system_user_name }}"
+    group: "{{ keystone_system_group_name }}"
+    comment: "{{ keystone_system_comment }}"
+    shell: "{{ keystone_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ keystone_system_user_home }}"
+
+# The fernet key repository is needed on all hosts even if only running against
+# one host, so the delegation preps the directories on all hosts at once.
+- name: Create keystone dir
+  file:
+    path: "{{ item[1].path }}"
+    state: directory
+    owner: "{{ item[1].owner|default(keystone_system_user_name) }}"
+    group: "{{ item[1].group|default(keystone_system_group_name) }}"
+    mode: "{{ item[1].mode|default(0755) }}"
+  with_nested:
+    - "{{ ansible_play_hosts }}"
+    - - { path: "/etc/keystone", mode: "0750", owner: root }
+      - { path: "{{ keystone_fernet_tokens_key_repository }}", mode: "2750"}
+      - { path: "{{ keystone_credential_tokens_key_repository }}", mode: "2750"}
+      - { path: "/etc/ansible/facts.d", owner: root, group: root }
+  delegate_to: "{{ item[0] }}"
+  run_once: true

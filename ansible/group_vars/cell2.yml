@@ -1,0 +1,10 @@
+---
+nova_cell_name: cell2
+nova_cell_compute_group: compute-cell2
+nova_cell_conductor_group: cell-control-cell2
+nova_cell_novncproxy_group: cell-control-cell2
+nova_cell_rabbitmq_cookie_token: cell2_securet
+nova_cell_database_name: nova_cell2
+nova_cell_mysql_name: nova_cell2
+cell_vip_address: "{{ cell2_vip_address|default('cell2_vip_address_not_set') }}"
+nova_novncproxy_port: 6081

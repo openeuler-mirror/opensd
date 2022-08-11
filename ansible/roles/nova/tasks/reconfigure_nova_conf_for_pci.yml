@@ -1,0 +1,54 @@
+---
+- name: Get pass through servers
+  set_fact:
+    pass_through_servers: |
+      {% set server_list = [] %}
+      {% set pci_list = [] %}
+      {% for host in groups['nova-compute'] %}
+      {% if hostvars[host]['gpu_server_type'] is defined and hostvars[host]['gpu_server_type'] == 'pass_through'  %}
+      {% set pci_item = hostvars[host]['ansible_local']['openstack_ansible']['nova'] %}
+      {% if pci_item.product_id not in pci_list %}
+      {% set _ = pci_list.append(pci_item.product_id) %}
+      {% set _ = server_list.append(host) %}
+      {% endif %}
+      {% endif %}
+      {% endfor %}
+      {{ server_list }}
+
+- name: Drop set_pci_for_nova_conf.py auto scrtipt
+  template:
+    src: "set_pci_for_nova_conf.py.j2"
+    dest: "/tmp/set_pci_for_nova_conf.py"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+- name: Run auto script set_pci_for_nova_conf.py
+  command:  /tmp/set_pci_for_nova_conf.py
+  register: set_pci_for_nova_conf
+  when: pass_through_servers[0] is defined
+
+- name: Restart nova-conductor services
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+    state: "restarted"
+    daemon_reload: yes
+  with_items:
+    - "openstack-nova-conductor"
+  when:
+    - inventory_hostname in groups['control']
+    - set_pci_for_nova_conf.stdout == "changed"
+
+- name: Restart nova-conductor services
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+    state: "restarted"
+    daemon_reload: yes
+  with_items:
+    - "openstack-nova-conductor"
+  when:
+    - inventory_hostname in groups['nova-conductor']
+    - set_pci_for_nova_conf.stdout == "changed"
+    - enable_cells | bool

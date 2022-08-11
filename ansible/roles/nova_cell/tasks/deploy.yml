@@ -1,0 +1,20 @@
+---
+- include_tasks: haproxy.yml
+  when:
+    - inventory_hostname in groups[nova_cell_conductor_group]
+    - enable_cells | bool
+    - enable_haproxy | bool
+
+- include_tasks: nova_cell_install.yml
+
+- include_tasks: nova_cell_db_setup.yml
+  when: inventory_hostname == groups[nova_cell_conductor_group][0]
+
+- include_tasks: nova_compute_sshkey.yml
+  when: inventory_hostname in groups[nova_cell_compute_group]
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: nova_cell_v2_discover.yml
+  when: inventory_hostname == groups[nova_cell_conductor_group][0]

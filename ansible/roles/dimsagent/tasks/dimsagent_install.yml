@@ -1,0 +1,51 @@
+---
+- name: Ensure dims_agent packages installed
+  package:
+    name: "{{ dims_agent_package_name}}"
+    state: "{{ dims_agent_package_state }}"
+  register: packages_install
+  until: packages_install is success
+  retries: 5
+  delay: 2
+  notify: Restart dimsagent services
+
+- name: Copying over dims_agent-*.conf
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/dimsagent/{{ item }}"
+    mode: "0644"
+  become: true
+  with_items:
+    - dimsagent-agent.conf
+    - dimsagent-api.conf
+    - dimsagent-scheduler.conf
+    - dims-openrc.sh
+  notify:
+    - Restart dimsagent services
+
+- name: Copying over dims_agent api paste file
+  template:
+    src: "{{ item }}"
+    dest: "/etc/dimsagent/api-paste.ini"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  with_first_found:
+    - "{{ node_custom_config }}/dimsagent/api-paste.ini"
+    - "api-paste.ini.j2"
+  notify:
+    - Restart dimsagent services
+
+- name: Copying over dimsagent service files
+  copy:
+    src: "{{ item }}"
+    dest: "/usr/lib/systemd/system/{{ item }}"
+    mode: "0660"
+  become: true
+  with_items:
+    - openstack-dimsagent-agent.service
+    - openstack-dimsagent-api.service
+    - openstack-dimsagent-scheduler.service
+  notify:
+    - Restart dimsagent services
+

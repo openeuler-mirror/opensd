@@ -1,0 +1,18 @@
+---
+- include_tasks: haproxy.yml
+  when:
+    - inventory_hostname in groups['ironic-inspector-dnsmasq']
+    - groups['ironic-inspector-dnsmasq']|count() > 1
+
+- include_tasks: ironic_pre_install.yml
+
+- include_tasks: ironic_httproot_install.yml
+  when: inventory_hostname == groups['ironic-inspector-dnsmasq'][0]
+
+- include_tasks: ironic_install.yml
+
+- include_tasks: ironic_db_setup.yml
+  when: inventory_hostname == groups['ironic-conductor'][0]
+
+- include_tasks: ironic_register.yml
+  when: inventory_hostname == groups['ironic-api'][0]

@@ -1,0 +1,52 @@
+---
+- name: Create DB for service
+  mysql_db:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ miner_database_name }}"
+    state: "present"
+  no_log: True
+
+- name: Grant access to the DB for the service
+  mysql_user:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ miner_mysql_user }}"
+    password: "{{ miner_mysql_password }}"
+    host: "{{ item }}"
+    state: "present"
+    priv: "{{ miner_database_name }}.*:ALL"
+  with_items:
+    - "localhost"
+    - "%"
+  no_log: True
+
+- name: Perform a DB sync
+  command: "/usr/bin/miner-manage db sync"
+  when:
+    - "ansible_local['openstack_ansible']['miner']['need_db_sync'] | bool"
+
+# NOTE We use failed_when as true,because when ironic server is not installed,
+# this command will be failed,remove failed_when we finish ironic server is installed
+- name: Perform a DB init
+  command: "/usr/bin/miner-manage db init"
+  failed_when: false
+  when:
+    - "ansible_local['openstack_ansible']['miner']['need_db_init'] | bool"
+
+- name: Disable the db sync local fact
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: miner
+    option: "{{ item }}"
+    value: "False"
+  with_items:
+    - "need_db_sync"
+    - "need_db_init"
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"

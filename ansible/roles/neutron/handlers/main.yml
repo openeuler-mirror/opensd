@@ -1,0 +1,49 @@
+---
+- name: Stop services
+  service:
+    name: "{{ item.service_name }}"
+    enabled: yes
+    state: "stopped"
+    daemon_reload: yes
+  with_items: "{{ filtered_neutron_services }}"
+  register: _stop
+  until: _stop is success
+  retries: 5
+  delay: 2
+  listen: "Restart neutron services"
+
+- name: Perform a DB contract
+  command: "{{ neutron_bin }}/neutron-db-manage upgrade --contract"
+  become: yes
+  become_user: "{{ neutron_system_user_name }}"
+  delegate_to: "{{ groups[neutron_services['neutron-server']['group']][0] }}"
+  when:
+    - "ansible_local['openstack_ansible']['neutron']['need_db_contract'] | bool"
+    - "neutron_services['neutron-server']['group'] in group_names"
+    - "inventory_hostname == neutron_setup_host"
+  listen: "Restart neutron services"
+
+- name: Disable the db expand fact
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: neutron
+    option: "need_db_contract"
+    value: "False"
+  when:
+    - "ansible_local['openstack_ansible']['neutron']['need_db_contract'] | bool"
+    - "neutron_services['neutron-server']['group'] in group_names"
+    - "inventory_hostname == neutron_setup_host"
+  listen: "Restart neutron services"
+
+- name: Start services
+  service:
+    name: "{{ item.service_name }}"
+    enabled: yes
+    state: "started"
+    daemon_reload: yes
+  with_items: "{{ filtered_neutron_services }}"
+  register: _start
+  until: _start is success
+  retries: 5
+  delay: 2
+  listen: "Restart neutron services"

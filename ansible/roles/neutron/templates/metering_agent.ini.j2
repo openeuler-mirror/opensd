@@ -1,0 +1,36 @@
+# {{ ansible_managed }}
+
+{% set kafka_host = [] %}
+{% for plugin in monitor_ip %}
+  {% set _ = kafka_host.append(plugin + ":9092") %}
+{% endfor %}
+
+# General
+[DEFAULT]
+kafka_host = {{ kafka_host | join(',') }}
+enable_monitor_vm =  True
+enable_monitor_vpc = True
+enable_monitor_router = True
+enable_monitor_eip = True
+enable_monitor_vpc2vpc = True
+report_vm_interval = {{ report_vm_interval  }}
+report_vpc2vpc_interval = {{ report_vpc2vpc_interval  }}
+sync_router_vpc_interval = {{ sync_router_vpc_interval  }}
+monitor_topic_router = monitor_topic_router
+monitor_topic_eip = monitor_topic_eip
+monitor_topic_vpc = monitor_topic_vpc
+monitor_topic_vpc2vpc = monitor_topic_vpc2vpc
+monitor_topic_vm_healthchk = monitor_topic_vm_healthchk
+monitor_topic_router_con_detail = monitor_topic_router_con_detail
+interface_driver =neutron.agent.linux.interface.OVSInterfaceDriver
+driver = {{ neutron_driver_metering }}
+measure_interval = {{ measure_interval  }}
+report_router_icmp_con_interval = {{ report_router_icmp_con_interval  }}
+report_router_udp_con_interval = {{ report_router_udp_con_interval  }}
+report_router_tcp_con_interval = {{ report_router_tcp_con_interval  }}
+report_interval = {{ report_interval  }}
+debug = False
+enable_conn_tcp = True
+enable_conn_udp = True
+enable_conn_icmp = True
+

@@ -1,0 +1,38 @@
+---
+- name: create the system group
+  group:
+    name: "{{ cinder_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the cinder system user
+  user:
+    name: "{{ cinder_system_user_name }}"
+    group: "{{ cinder_system_group_name }}"
+    comment: "{{ cinder_system_comment }}"
+    shell: "{{ cinder_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ cinder_system_user_home }}"
+
+- name: Create cinder dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(cinder_system_user_name) }}"
+    group: "{{ item.group|default(cinder_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "{{ cinder_lock_path }}" }
+  when: cinder_services['cinder-backup']['group'] in group_names
+
+- name: Create cinder_volume groups based on availability_zone
+  group_by:
+    key: cinder_volume_{{ availability_zone }}
+  when: cinder_services['cinder-volume']['group'] in group_names
+
+- name: Create cinder_backup groups based on availability_zone
+  group_by:
+    key: cinder_backup_{{ availability_zone }}
+  when: cinder_services['cinder-backup']['group'] in group_names
+

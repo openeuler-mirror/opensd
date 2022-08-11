@@ -1,0 +1,16 @@
+---
+- name: Fail when the host is not in mariadb group.
+  fail:
+    msg: "The host {{ inventory_hostname }} must be in pri_mariadb group."
+  when: inventory_hostname not in groups[galera_group_name|default('pri_mariadb')]
+  tags:
+    - always
+
+- name: Fail if the galera root password is not provided
+  fail:
+    msg: |
+      Please set the galera_root_password variable prior to applying the
+      galera role.
+  when: (galera_root_password is undefined) or (galera_root_password is none)
+  tags:
+    - always

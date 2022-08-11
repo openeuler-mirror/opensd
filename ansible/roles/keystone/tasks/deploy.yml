@@ -1,0 +1,25 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: keystone_pre_install.yml
+
+- include_tasks: keystone_install.yml
+
+- include_tasks: keystone_post_install.yml
+
+- include_tasks: keystone_fernet.yml
+  when: inventory_hostname == groups['keystone'][0]
+
+- include_tasks: keystone_credential.yml
+  when: inventory_hostname == groups['keystone'][0]
+
+- include_tasks: keystone_db_setup.yml
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: keystone_openrc.yml
+
+- include_tasks: keystone_register.yml
+  when: inventory_hostname == groups['keystone'][0]
+
+- include_tasks: keystone_check.yml

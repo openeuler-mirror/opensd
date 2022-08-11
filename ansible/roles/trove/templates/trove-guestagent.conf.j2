@@ -1,0 +1,68 @@
+[DEFAULT]
+debug = True
+#verbose = True
+rpc_backend=rabbit
+transport_url = rabbit://{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@proxy.opensd.io:5672
+trove_auth_url = http://proxy.opensd.io:5000
+username = {{ trove_service_user_name }}
+password = {{ trove_service_password }}
+os_region_name = RegionOne
+log_dir = /var/log/trove
+log_file = trove-guestagent.log
+datastore_registry_ext = mysql:trove.guestagent.datastore.mysql.manager.Manager, percona:trove.guestagent.datastore.mysql.manager.Manager, redis:trove.guestagent.datastore.experimental.redis.manager.Manager, mongodb:trove.guestagent.datastore.experimental.mongodb.manager.Manager
+root_grant = ALL
+root_grant_option = True
+swift_url = http://proxy.opensd.io:8080/swift/v1/AUTH_
+#os_region_name = RegionOne
+#storage_strategy = SwiftStorage
+#storage_namespace = trove.common.strategies.storage.swift
+#remot_swift_client = trove.remote.swift_client
+#swift_endpoint_type = publicURL
+#swift_service_type = object-store
+backup_runner_options = InnoBackupEx:--host=127.0.0.1,XtraBackup:--host=127.0.0.1
+control_exchange = trove
+volume_fstype = xfs
+format_options =
+
+[oslo_messaging_rabbit]
+amqp_durable_queues = True
+
+[keystone_authtoken]
+auth_uri = http://proxy.opensd.io:5000
+auth_url = http://proxy.opensd.io:5000/v3
+auth_type = {{ trove_keystone_auth_plugin }}
+project_domain_name = {{ trove_service_project_domain_id }}
+user_domain_name = {{ trove_service_user_domain_id }}
+project_name = {{ trove_service_project_name }}
+username = {{ trove_service_user_name }}
+password = {{ trove_service_password }}
+
+
+
+[mysql]
+replication_strategy = MysqlGTIDReplication
+replication_namespace = trove.guestagent.strategies.replication.mysql_gtid
+backup_strategy = XtraBackup
+backup_namespace = trove.guestagent.strategies.backup.mysql_impl
+restore_namespace = trove.guestagent.strategies.restore.mysql_impl
+
+[percona]
+backup_namespace = trove.guestagent.strategies.backup.mysql_impl
+restore_namespace = trove.guestagent.strategies.restore.mysql_impl
+
+[redis]
+backup_strategy = RedisBackup
+backup_namespace = trove.guestagent.strategies.backup.experimental.redis_impl
+restore_namespace = trove.guestagent.strategies.restore.experimental.redis_impl
+
+[mongodb]
+backup_namespace = trove.guestagent.strategies.backup.experimental.mongo_impl
+backup_strategy = MongoDump
+guestagent_strategy = trove.common.strategies.cluster.experimental.mongodb.guestagent.MongoDbGuestAgentStrategy
+
+[s3_storage]
+method = S3
+endpoint_url = {{ s3_endpoint_url }}
+access_key = {{ s3_access_key }}
+secret_key = {{ s3_secret_key }}
+os_region_name = RegionOne

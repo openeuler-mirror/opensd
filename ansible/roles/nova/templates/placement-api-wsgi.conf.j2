@@ -1,0 +1,30 @@
+{% set log_dir = '/var/log/nova' %}
+{% set python_path = '/usr/lib/python2.7/site-packages' %}
+{% set wsgi_directory = '/usr/bin' %}
+Listen {{ api_interface_address }}:{{ placement_api_port }}
+
+ServerSignature Off
+ServerTokens Prod
+TraceEnable off
+
+<VirtualHost *:{{ placement_api_port }}>
+    WSGIDaemonProcess placement-api processes={{ nova_api_threads }}  threads=1 user=nova group=nova display-name=%{GROUP} python-path={{ python_path }}
+    WSGIProcessGroup placement-api
+    WSGIScriptAlias / {{ wsgi_directory }}/nova-placement-api
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+    <IfVersion >= 2.4>
+      ErrorLogFormat "%{cu}t %M"
+    </IfVersion>
+    ErrorLog "{{ log_dir }}/nova-placement-api.log"
+    LogFormat "%{X-Forwarded-For}i %l %u %t \"%r\" %>s %b %D \"%{Referer}i\" \"%{User-Agent}i\"" logformat
+    <Directory /usr/bin>
+        <IfVersion >= 2.4>
+            Require all granted
+        </IfVersion>
+        <IfVersion < 2.4>
+            Order allow,deny
+            Allow from all
+        </IfVersion>
+    </Directory>
+</VirtualHost>

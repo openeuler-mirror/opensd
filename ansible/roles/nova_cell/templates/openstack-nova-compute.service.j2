@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenStack Nova Compute Server for ironic in {{ ironic_availability_zone }}
+After=syslog.target network.target libvirtd.service
+
+[Service]
+Environment=LIBGUESTFS_ATTACH_METHOD=appliance
+Type=notify
+NotifyAccess=all
+TimeoutStartSec=0
+Restart=always
+User=nova
+ExecStart=/usr/bin/nova-compute  --config-file /etc/nova/nova-{{ ironic_availability_zone }}.conf --log-file /var/log/nova/nova-compute-{{ ironic_availability_zone }}.log
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,32 @@
+---
+- name: Checking NVIDIA was installed or configured correctly
+  shell: ls /sys/class/mdev_bus/*/mdev_supported_types/
+  register: mdev_bus_check
+  failed_when: mdev_bus_check.rc > 1
+  when: gpu_server_type == "vgpu"
+
+- name: get gpu device
+  shell: lspci | grep NVIDIA | sed -n "1p" | awk '{print $1}'
+  register: gpu_device
+  failed_when: gpu_device.rc != 0
+  when: gpu_server_type == "pass_through"
+
+- name: Checking where passthrough is set
+  shell: lspci -vvv -s {{ gpu_device.stdout }} | grep "Kernel driver in use" | awk '{print $NF}'
+  register: kernel_driver
+  failed_when: kernel_driver.rc != 0
+  when: gpu_server_type == "pass_through"
+
+- name: fail the if there is no content in dir mdev_bus for vGPU
+  fail: "msg='Please check if the NVIDIA was installed or configured correctly for vGPU'"
+  when: 
+    - gpu_server_type == "vgpu"
+    - mdev_bus_check.stdout == ""
+
+- name: fail if the kernel drvier is not vfio-pci for passThrough
+  fail: "msg='Please check if the NVIDIA is configured correctly for passThrough'"
+  when: 
+    - gpu_server_type == "pass_through"
+    - kernel_driver.stdout != "vfio-pci"
+
+
