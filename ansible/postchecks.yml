@@ -1,0 +1,12 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- import_playbook: gather-facts.yml
+
+- name: Apply role postchecks
+  gather_facts: false
+  hosts:
+    - all
+  roles:
+    - { role: postchecks,
+        when: opensd_action == "postcheck" }
+

@@ -1,0 +1,201 @@
+---
+## Verbosity Options
+cinder_logging_debug: "{{ openstack_logging_debug }}"
+cinder_setup_host: "{{ groups['cinder'][0] }}"
+cinder_enable_force_upload: true
+
+# Set the package install state
+# Options are 'present' and 'latest'
+cinder_package_state: "present"
+
+cinder_fatal_deprecations: False
+
+## System info
+cinder_system_user_name: cinder
+cinder_system_group_name: cinder
+cinder_system_shell: /bin/false
+cinder_system_comment: cinder system user
+cinder_system_user_home: "/var/lib/{{ cinder_system_user_name }}"
+cinder_bin: "/usr/bin"
+
+## API options
+cinder_enable_v2_api: True
+
+## Database info
+cinder_db_setup_host: "{{ ('mariadb' in groups) | ternary(groups['mariadb'][0], 'localhost') }}"
+cinder_database_name: cinder
+cinder_database_user: cinder
+
+cinder_role_name: admin
+
+cinder_management_address: "{{ api_interface_address }}"
+
+# Cinder db tuning
+cinder_db_max_overflow: 200
+cinder_db_max_pool_size: 500
+cinder_db_pool_timeout: 30
+cinder_db_min_pool_size: 100
+cinder_db_max_retries: 5
+cinder_db_retry_interval: 2
+cinder_db_inc_retry_interval: true
+cinder_db_max_retry_interval: 2
+
+## Service Type and Data
+cinder_service_region: RegionOne
+cinder_service_name: cinderv3
+cinder_service_port: 8776
+cinder_service_type: volumev3
+cinder_service_description: "Cinder Volume Service"
+cinder_service_user_name: cinder
+cinder_service_project_name: service
+cinder_service_project_domain_id: default
+cinder_service_user_domain_id: default
+cinder_service_publicurl: "http://{{ opensd_vip_address }}:{{ cinder_service_port }}/v3/%(project_id)s"
+cinder_service_internalurl: "http://{{ opensd_vip_address }}:{{ cinder_service_port }}/v3/%(project_id)s"
+cinder_service_adminurl: "http://{{ opensd_vip_address }}:{{ cinder_service_port }}/v3/%(project_id)s"
+
+cinder_auth_strategy: keystone
+
+## Keystone authentication middleware
+cinder_keystone_auth_plugin: password
+
+## Cinder config
+cinder_image_cache_max_size: 10737418240
+
+## Cap the maximun number of threads / workers when a user value is unspecified.
+cinder_osapi_volume_workers_max: 16
+cinder_osapi_volume_workers: "{{ [[ansible_processor_vcpus|default(2) // 2, 1] | max, cinder_osapi_volume_workers_max] | min }}"
+
+cinder_profiler_hmac_key: my_hmac_key
+
+## Cinder RPC
+cinder_rpc_executor_thread_pool_size: 64
+cinder_rpc_response_timeout: 60
+
+# (StrOpt) Method used to wipe old volumes (valid options are: none, zero)
+cinder_volume_clear: zero
+# (StrOpt) The flag to pass to ionice to alter the i/o priority of the process
+# used to zero a volume after deletion, for example "-c3" for idle only
+# priority.
+cinder_volume_clear_ionice: -c3
+
+# (IntOpt) Size in MiB to wipe at start of old volumes. 0 => all
+cinder_volume_clear_size: 0
+
+cinder_volume_name_template: volume-%s
+
+# osprofiler
+cinder_profiler_enabled: false
+# cinder_profiler_hmac_key is set in user_secrets.yml
+cinder_profiler_trace_sqlalchemy: false
+
+cinder_client_socket_timeout: 900
+
+## Cinder quota
+cinder_quota_volumes: -1
+cinder_quota_snapshots: -1
+cinder_quota_consistencygroups: -1
+cinder_quota_gigabytes: -1
+cinder_quota_backups: -1
+cinder_quota_backup_gigabytes: -1
+
+## Cinder nova
+cinder_nova_catalog_info: compute:nova:internalURL
+cinder_nova_catalog_admin_info: compute:nova:adminURL
+
+## Cinder glance
+cinder_glance_api_servers: "http://{{ opensd_vip_address }}:{{ glance_api_port }}"
+
+## Avaliable Zone
+cinder_storage_availability_zone: "{{ availability_zone }}"
+cinder_default_availability_zone: "{{ cinder_storage_availability_zone }}"
+
+## Cinder iscsi
+cinder_target_helper: lioadm
+cinder_iscsi_iotype: fileio
+cinder_iscsi_num_targets: 100
+cinder_iscsi_port: 3260
+
+cinder_storage_address: 127.0.0.1
+
+## General configuration
+# cinder_backends:
+#   lvm:
+#     volume_group: cinder-volumes
+#     volume_driver: cinder.volume.drivers.lvm.LVMVolumeDriver
+#     volume_backend_name: LVM_iSCSI
+#     extra_volume_types:
+#       - lvm_high_iops
+#       - lvm_low_iops
+
+# cinder_backend_lvm_inuse: True if current host has an lvm backend
+cinder_backend_lvm_inuse: '{{ (cinder_backends|default("")|to_json).find("lvm") != -1 }}'
+
+cinder_lock_path: /var/lock/cinder
+
+# Enable/Disable Barbican
+cinder_barbican_enabled: False
+
+keystone_service_internalurl: "http://{{ opensd_vip_address }}:{{ keystone_service_port }}"
+
+cinder_amqp_durable_queues: true
+cinder_rabbit_ha_queues: true
+
+## Service Name-Group Mapping
+cinder_services:
+  cinder-scheduler:
+    group: cinder-scheduler
+    service_name: openstack-cinder-scheduler
+    start_order: 1
+  cinder-volume:
+    group: cinder-volume
+    service_name: openstack-cinder-volume
+    start_order: 2
+  cinder-backup:
+    group: cinder-backup
+    service_name: openstack-cinder-backup
+    start_order: 2
+  cinder-api:
+    group: cinder-api
+    service_name: openstack-cinder-api
+    start_order: 4
+
+filtered_cinder_services: |-
+  {% set services = [] %}
+  {% for key, value in cinder_services.items() %}
+  {%   if key not in ['cinder-volume', 'cinder-backup'] and value['group'] in group_names %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+## Cinder packages mapping
+cinder_service_distro_packages:
+  - openstack-cinder
+  - python-openstackclient
+
+cinder_volume_distro_packages: "{{ ['qemu-img-ma', 'iscsi-initiator-utils', 'nfs-utils', 'rpcbind'] if  (ansible_architecture == 'aarch64') else ['qemu-img-ev', 'iscsi-initiator-utils', 'nfs-utils', 'rpcbind'] }}"
+
+cinder_lvm_volume_distro_packages:
+  - device-mapper-event
+  - lvm2
+  - parted
+  - targetcli
+
+cinder_package_list: |-
+  {% set packages = cinder_service_distro_packages %}
+  {% if cinder_services['cinder-volume']['group'] in group_names or cinder_services['cinder-backup']['group']%}
+  {%   set _ = packages.extend(cinder_volume_distro_packages) %}
+  {%   if cinder_backend_lvm_inuse | bool %}
+  {%     set _ = packages.extend(cinder_lvm_volume_distro_packages) %}
+  {%   endif %}
+  {% endif %}
+  {{ packages }}
+
+# cinder backup
+backup_ceph_conf: /etc/ceph/ceph.conf
+backup_ceph_user: cinder
+backup_ceph_pool: volumes
+backup_driver: cinder.backup.drivers.ceph
+backup_ceph_pool_type: hdd

@@ -1,0 +1,45 @@
+---
+- name: Ensure libvirt packages installed
+  package:
+    name: "{{ libvirt_package_list }}"
+    state: "{{ libvirt_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  notify: Restart libvirtd services
+
+- name: Mask libvirt socket
+  systemd:
+    name: "{{ item }}"
+    masked: yes
+  with_items:
+    - libvirtd.socket
+    - libvirtd-ro.socket
+    - libvirtd-admin.socket
+    - libvirtd-tls.socket
+    - libvirtd-tcp.socket
+  when: ansible_architecture == "aarch64"
+
+- name: Copy over libvirtd.conf
+  template:
+    src: "{{ item }}"
+    dest: "/etc/libvirt/libvirtd.conf"
+    mode: "0644"
+  become: true
+  with_first_found:
+    - "{{ node_custom_config }}/libvirtd.conf"
+    - "libvirtd.conf.j2"
+  notify:
+    - Restart libvirtd services
+
+- name: Set libvirt runtime options
+  lineinfile:
+    dest: "/etc/sysconfig/libvirtd"
+    line: 'LIBVIRTD_ARGS="--listen"'
+    regexp: "^(#)?LIBVIRTD_ARGS=*"
+    backup: "yes"
+  when:
+    - nova_libvirtd_listen_tcp == 1
+  notify:
+    - Restart libvirtd services

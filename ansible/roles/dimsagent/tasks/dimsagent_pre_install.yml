@@ -1,0 +1,29 @@
+---
+- name: Create dimsagent log dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default('root') }}"
+    group: "{{ item.group|default('root') }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: dims_agent_log_dir }
+    - { path: dims_agent_data_dir }
+    - { path: dims_agent_conf_dir }
+
+- name: Generate /etc/hosts for all nodes
+  lineinfile:
+    dest: /etc/hosts
+    state: present
+    line: "{{ item.host_ip }} {{ item.host_name }}"
+  with_items: "{{ s3_address_domain_pair }}"
+
+
+- name: Drop dimsagent logrotate config
+  template:
+    src: "openstack-dimsagent"
+    dest: "/etc/logrotate.d/"
+
+- name: pycrpto code copy
+  unarchive: src=pycrypto.tar.gz dest=/usr/lib64/python2.7/site-packages/ copy=yes force=true mode=0755
+

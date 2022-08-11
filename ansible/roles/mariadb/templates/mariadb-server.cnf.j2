@@ -1,0 +1,59 @@
+[client]
+default-character-set=utf8
+
+[mysql]
+default-character-set=utf8
+
+[mysqld]
+basedir=/usr
+bind-address={{ api_interface_address }}
+port={{ mariadb_port }}
+socket={{ mariadb_socket }}
+
+log-error=/var/log/mariadb/mariadb.log
+
+log-bin=mysql-bin
+binlog_format=ROW
+expire_logs_days=14
+default-storage-engine=innodb
+innodb_autoinc_lock_mode=2
+innodb_file_per_table=on
+innodb_log_file_size = 256M
+
+collation-server = utf8_general_ci
+init-connect='SET NAMES utf8'
+character-set-server = utf8
+
+datadir=/var/lib/mysql/
+
+wsrep_cluster_address=gcomm://{% if (groups[galera_group_name|default('mariadb')] | length) > 1 %}{% for host in groups[galera_group_name|default('mariadb')] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ mariadb_wsrep_port }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}
+
+wsrep_provider_options=gmcast.listen_addr=tcp://{{ api_interface_address }}:{{ mariadb_wsrep_port }};ist.recv_addr={{ api_interface_address }}:{{ mariadb_ist_port }}
+
+wsrep_node_address={{ api_interface_address }}:{{ mariadb_wsrep_port }}
+wsrep_sst_receive_address={{ api_interface_address }}:{{ mariadb_sst_port }}
+
+wsrep_provider=/usr/lib64/galera-4/libgalera_smm.so
+wsrep_cluster_name="{{ galera_cluster_name }}"
+wsrep_node_name={{ ansible_hostname }}
+wsrep_sst_method={{ wsrep_sst_method }}
+wsrep_sst_auth={{ galera_sst_user }}:{{ galera_root_password }}
+wsrep_slave_threads=4
+wsrep_on = ON
+
+max_connections=10000
+
+key_buffer_size = '64M'
+max_heap_table_size = '64M'
+tmp_table_size = '64M'
+{% set dynamic_pool_size_mb = (hostvars[inventory_hostname]['ansible_memtotal_mb'] * 0.4) | round | int %}
+{% if dynamic_pool_size_mb < 8192 %}
+innodb_buffer_pool_size = '{{ dynamic_pool_size_mb }}M'
+{% else %}
+innodb_buffer_pool_size = '8192M'
+{% endif %}
+log_bin_trust_function_creators = 1
+innodb_lock_schedule_algorithm = FCFS
+
+[server]
+pid-file=/var/lib/mysql/mariadb.pid

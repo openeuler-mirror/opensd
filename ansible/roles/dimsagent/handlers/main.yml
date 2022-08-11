@@ -1,0 +1,33 @@
+---
+- name: Restart dimsagent-api service
+  systemd:
+    name: openstack-dimsagent-api.service
+    enabled: yes
+    daemon_reload: true
+    state: restarted
+  listen: Restart dimsagent services
+
+- name: Restart dimsagent-agent service
+  systemd:
+    name: openstack-dimsagent-agent.service
+    enabled: yes
+    daemon_reload: true
+    state: restarted
+  listen: Restart dimsagent services
+
+- name: Restart dimsagent-scheduler service
+  systemd:
+    name: openstack-dimsagent-scheduler.service
+    enabled: yes
+    daemon_reload: true
+    state: restarted
+  listen: Restart dimsagent services
+
+- name: Restart rbd-mount service
+  systemd:
+    name: rbd-mount.service
+    enabled: yes
+    daemon_reload: true
+    state: restarted
+  listen: Restart rbd-mount service
+

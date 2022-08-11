@@ -1,0 +1,41 @@
+---
+- name: Drop get_facts_for_passthrough auto script to GPU server
+  template:
+    src: "get_facts_for_passthrough.py.j2"
+    dest: "/tmp/get_facts_for_passthrough.py"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+- name: Run pci passthrough auto script
+  shell: python /tmp/get_facts_for_passthrough.py
+  register: passthrough_facts_result
+  failed_when: passthrough_facts_result.rc != 0
+
+- name: set_fact
+  set_fact:
+    passthrough_facts: "{{ passthrough_facts_result.stdout }}"
+
+- name: Initialize local facts for GPU server
+  ini_file:
+    path: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "nova"
+    option: "{{ item.name }}"
+    value: "{{ item.state }}"
+  with_items:
+    - name: "product_id"
+      state: "{{ passthrough_facts.product_id }}"
+    - name: "vendor_id"
+      state: "{{ passthrough_facts.vendor_id }}"
+    - name: "device_type"
+      state: "{{ passthrough_facts.device_type }}"
+    - name: "name"
+      state: "{{ passthrough_facts.name }}"
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+  tags:
+    - always
+

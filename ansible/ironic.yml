@@ -1,0 +1,171 @@
+---
+- name: Perform bootstrap pre install
+  gather_facts: false
+  serial: '{{ opensd_serial|default("0") }}'
+  hosts: all
+  tasks:
+    - import_role:
+        name: bootstrap
+        tasks_from: pre-install.yml
+      when:
+        - opensd_action in ['deploy']
+        - enable_hosts_file_modify | bool
+
+- name: Install pcs cluster
+  gather_facts: false
+  hosts:
+    - baremetal
+  roles:
+    - { role: pacemaker,
+        vip_address: "{{ ironic_tftp_server_address }}",
+        api_interface: "{{ ironic_dnsmasq_interface }}",
+        pcs_cluster_group_name: "baremetal",
+        is_multi_servers: "{{ groups['baremetal'] | count() > 1 }}",
+        when: "is_multi_servers | bool" }
+
+- name: Apply role ironic
+  gather_facts: false
+  hosts:
+    - ironic-api
+    - ironic-conductor
+    - ironic-inspector
+    - ironic-inspector-dnsmasq
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: ironic }
+
+- name: Run nova cell pre install
+  gather_facts: false
+  serial: '{{ opensd_serial|default("0") }}'
+  hosts: compute-cell1-ironic
+  tasks:
+    - name: Bootstrap deploy
+      include_role:
+        name: nova_cell
+        tasks_from: nova_cell_pre_install.yml
+      when:
+        - opensd_action in ['deploy']
+
+- name: Deploy nova compute service
+  gather_facts: false
+  serial: '{{ opensd_serial|default("0") }}'
+  hosts: compute-cell1-ironic
+  tasks:
+    - include_role:
+        name: nova_cell
+        tasks_from: nova_cell_install.yml
+      when:
+        - opensd_action in ['deploy']
+
+- name: Perform a cell_v2 discovery
+  gather_facts: false
+  serial: '{{ opensd_serial|default("0") }}'
+  hosts: cell-control-cell1
+  tasks:
+    - import_role:
+        name: nova_cell
+        tasks_from: nova_cell_v2_discover.yml
+      run_once: true
+      when:
+        - opensd_action in ['deploy']
+
+- name: Reload nova-api service
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: reload_nova_api.yml
+      when:
+        - opensd_action in ['deploy']
+
+- name: Reload nova-scheduler service
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: reload_nova_scheduler.yml
+      when:
+        - opensd_action in ['deploy']
+
+- name: Check whether all nova-compute nodes are found
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - include_role:
+        name: nova
+        tasks_from: nova_ironic_compute_wait.yml
+      vars:
+        ironic_az: "{{ outer_item.split('.')[0] }}"
+      with_items: "{{ hostvars[groups['baremetal'][0]]['availability_zone'].split(',') }}"
+      loop_control:
+        loop_var: outer_item
+      run_once: true
+      when:
+        - opensd_action in ['deploy']
+
+- name: Run nova upgrade check
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: nova_db_post_setup
+      run_once: true
+      when:
+        - opensd_action in ['deploy']
+
+- name: Set nova aggregate groups for ironic
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: nova_ironic_aggregate_setup
+      run_once: true
+      when:
+        - opensd_action in ['deploy']
+
+- name: Synchronize node conductor data to miner db
+  gather_facts: false
+  hosts: miner-api
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: miner
+        tasks_from: miner_db_init
+      run_once: true
+      when:
+        - opensd_action in ['deploy'] and enable_miner | bool
+
+- name: Config neutron for ironic
+  gather_facts: false
+  hosts: neutron-server
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: neutron
+        tasks_from: neutron_ironic_setup.yml
+      when:
+        - opensd_action in ['deploy']
+
+- name: Ensure package ironicclient installed
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - name: Install package ironicclient
+      yum:
+        name: "python-ironicclient"
+        state: present
+        update_cache: yes
+      become: True
+      when:
+        - opensd_action in ['deploy']
+

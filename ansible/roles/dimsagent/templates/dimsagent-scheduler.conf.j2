@@ -1,0 +1,17 @@
+[DEFAULT]
+debug = {{ dims_agent_logging_debug }}
+log_file = {{ dims_agent_log_dir }}dimsagent-scheduler.log
+data_dir = {{ dims_agent_data_dir }}
+auth_strategy = keystone
+api_paste_config = /etc/dimsagent/api-paste.ini
+transport_url = {{ rpc_transport_url }}
+os_region_name = {{ keystone_service_region }}
+
+[database]
+connection = mysql+pymysql://{{ dims_agent_database_user }}:{{ dims_agent_database_password }}@{{ database_address }}:{{ database_port }}/{{ dims_agent_database_name }}?charset=utf8
+max_retries = -1
+
+[oslo_messaging_rabbit]
+rpc_conn_pool_size = 30
+amqp_durable_queues = True
+rabbit_ha_queues = True

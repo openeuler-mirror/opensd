@@ -1,0 +1,24 @@
+---
+- name: Generate the keystone system user ssh key
+  user:
+    name: "{{ keystone_system_user_name }}"
+    generate_ssh_key: "yes"
+
+- name: Get public key contents and store as var
+  slurp:
+    src: "{{ keystone_system_user_home }}/.ssh/id_rsa.pub"
+  register: keystone_pub
+  changed_when: false
+
+- name: Register a fact for the keystone pub key
+  set_fact:
+     keystone_pubkey: "{{ ansible_play_batch | map('extract', hostvars, 'keystone_pub') | map(attribute='content') | map('b64decode') | join('\n') | b64encode }}"
+  when: inventory_hostname == ansible_play_batch[0]
+
+- name: Create authorized keys file from host vars
+  authorized_key:
+    user: "{{ keystone_system_user_name }}"
+    key: "{{ keystone_pubkey | b64decode }}"
+  delegate_to: "{{ item }}"
+  with_items: "{{ ansible_play_hosts }}"
+  when: inventory_hostname == ansible_play_batch[0]

@@ -1,0 +1,32 @@
+---
+- name: Install distro packages
+  package:
+    name: "httpd"
+    state: "{{ ironic_package_state }}"
+  register: install_http_packages
+  until: install_http_packages is success
+  retries: 5
+  delay: 2
+
+- name: Copying over http.conf
+  template:
+    src: "{{ role_path }}/templates/{{ item }}.conf.j2"
+    dest: "/etc/httpd/conf.d/{{ item }}.conf"
+    owner: "root"
+    group: "root"
+    mode: "0660"
+  become: true
+  with_items:
+    - ironic-httpd
+  notify:
+    - Restart httpd services
+
+- name: Copying miner.types
+  copy:
+    src: "/etc/mime.types"
+    dest: "/etc/httpd/conf/"
+    owner: "root"
+    group: "root"
+    mode: 0755
+  notify:
+    - Restart httpd services

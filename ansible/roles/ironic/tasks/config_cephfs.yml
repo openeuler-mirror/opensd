@@ -1,0 +1,36 @@
+---
+- name: Set ceph_mon_host facts
+  set_fact:
+    ceph_mon_host: |
+      {% set mon_ip = [] %}
+      {% for comp in az_cephmon_compose %}
+      {%   if comp.availability_zone in hostvars[inventory_hostname]['availability_zone'].split(',') %}
+      {%     set _ = mon_ip.append(comp.ceph_mon_host) %}
+      {%   endif %}
+      {% endfor %}
+      {{ mon_ip }}
+
+- name: Retrieve keyrings for openstack clients from ceph cluster
+  shell: ceph auth get client.admin >/dev/null && ceph auth get-or-create client.admin
+  changed_when: false
+  delegate_to: '{{ ceph_mon_host[0] }}'
+  register: ceph_client_keyrings
+  until: ceph_client_keyrings is success
+  retries: 3
+
+- name: Copying over cephfs
+  template:
+    src: "{{ role_path }}/templates/tftpboot.mount.j2"
+    dest: "/usr/lib/systemd/system/tftpboot.mount"
+    mode: "0660"
+  become: true
+  register: cephfs_confs
+
+- name: Restart tftpboot.mount service
+  systemd:
+    name: "tftpboot.mount"
+    enabled: yes
+    state: "restarted"
+    daemon_reload: yes
+  when:
+    - cephfs_confs.changed | bool

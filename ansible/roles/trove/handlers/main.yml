@@ -1,0 +1,12 @@
+---
+- name: Restart trove api and  task & scheduler services
+  service:
+    name: "{{ item.service_name }}"
+    enabled: true
+    state: "restarted"
+  with_items: "{{ filtered_trove_services }}"
+  register: _restart
+  until: _restart  is success
+  retries: 5
+  delay: 5
+  listen: Restart trove services

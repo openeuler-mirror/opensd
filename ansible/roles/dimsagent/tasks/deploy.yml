@@ -1,0 +1,18 @@
+---
+- include_tasks: dimsagent_pre_install.yml
+
+- include_tasks: dimsagent_rbd_mount.yml
+
+- include_tasks: dimsagent_install.yml
+
+- include_tasks: dimsagent_db_setup.yml
+  when: inventory_hostname == dims_agent_setup_host
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: dimsagent_register.yml
+  when: inventory_hostname == dims_agent_setup_host
+
+# (TODO)
+- include_tasks: dimsagent_check.yml

@@ -1,0 +1,48 @@
+---
+- name: Restart os services(exclude cinder-volume & cinder-backup)
+  service:
+    name: "{{ item }}"
+    state: restarted
+  with_items: "{{ ceph_client_filtered_services }}"
+  listen: Restart os services
+  failed_when: false
+
+- name: Restart cinder-volume service(by pcs)
+  shell: "pcs resource restart openstack-cinder-volume"
+  run_once: true
+  when:
+    - enable_pacemaker | bool
+  listen: Restart os services
+  delegate_to: "{{ groups['cinder-volume'][0] }}"
+  failed_when: false
+
+- name: Restart cinder-backup service(by pcs)
+  shell: "pcs resource restart openstack-cinder-backup"
+  run_once: true
+  when:
+    - enable_pacemaker | bool
+  listen: Restart os services
+  delegate_to: "{{ groups['cinder-backup'][0] }}"
+  failed_when: false
+
+- name: Restart cinder-volume service(by systemd)
+  service:
+    name: "openstack-cinder-volume"
+    enabled: true
+    state: restarted
+  when:
+    - inventory_hostname in groups['cinder-volume']
+    - not enable_pacemaker | bool
+  listen: Restart os services
+  failed_when: false
+
+- name: Restart cinder-backup service(by systemd)
+  service:
+    name: "openstack-cinder-backup"
+    enabled: true
+    state: restarted
+  when:
+    - inventory_hostname in groups['cinder-backup']
+    - not enable_pacemaker | bool
+  listen: Restart os services
+  failed_when: false

@@ -1,0 +1,34 @@
+---
+mariadb_packages_name:
+  - "MariaDB-common"
+  - "MariaDB-server"
+  - "MariaDB-client"
+  - "MariaDB-shared"
+  - "MariaDB-devel"
+  - "MariaDB-backup"
+  - "galera-4"
+  - "MySQL-python"
+  - "libzstd"
+mariadb_package_state: "present"
+
+galera_server_bootstrap_node: "{{ groups[galera_group_name|default('mariadb')][0] }}"
+galera_ignore_cluster_state: False
+
+galera_root_user: root
+mariadb_socket: /var/lib/mysql/mysql.sock
+
+galera_file_limits: 65535
+galera_startup_timeout: 1800
+galera_disable_privatedevices: yes
+
+### galera.cnf
+api_interface_address: eth0
+mariadb_port: 3306
+mariadb_wsrep_port: 4567
+mariadb_ist_port: 4568
+mariadb_sst_port: 4444
+galera_cluster_name: openstack
+wsrep_sst_method: "mariabackup"
+galera_mariadb_service_name: "mariadb"
+galera_sst_user: 'sst_user'
+

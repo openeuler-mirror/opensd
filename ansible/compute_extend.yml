@@ -1,0 +1,150 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- import_playbook: gather-facts.yml
+
+- name: Perform bootstrap pre install
+  gather_facts: false
+  serial: '{{ opensd_serial|default("0") }}'
+  hosts: all
+  tasks:
+    - import_role:
+        name: bootstrap
+        tasks_from: pre-install.yml
+      when: enable_hosts_file_modify | bool
+
+- name: Gather facts for compute-added hosts
+  hosts: compute-added
+  serial: '{{ opensd_serial|default("0") }}'
+  gather_facts: false
+  tasks:
+    - name: Gather facts
+      setup:
+
+- name: Apply role chrony
+  gather_facts: false
+  hosts: compute-added
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: chrony,
+        tags: chrony,
+        when: enable_chrony | bool }
+
+- name: Apply role ceph_client
+  gather_facts: false
+  hosts: compute-added
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - role: ceph_client
+      tags: ceph_client
+      when: enable_ceph_client | bool
+
+- name: Apply role cinder
+  gather_facts: false
+  hosts: compute-added
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: cinder,
+        tags: cinder,
+        when: enable_cinder| bool }
+
+- name: Apply role nova_cell
+  gather_facts: false
+  hosts:
+    - nova-conductor
+    - nova-compute
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: nova_cell,
+        tags: nova,
+        when: enable_nova | bool }
+
+- name: Reconfig nova conf for pci
+  gather_facts: false
+  hosts:
+    - nova-conductor
+    - nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: reconfigure_nova_conf_for_pci
+      when: support_gpu == "True"
+
+- name: Reload nova-api service
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: reload_nova_api
+
+- name: Reload nova-scheduler service
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: reload_nova_scheduler
+
+- name: Check whether all nova-compute nodes are found
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: nova_compute_wait
+      run_once: true
+
+- name: Run nova upgrade check
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: nova_db_post_setup
+      run_once: true
+
+- name: Set nova aggregate groups
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: nova_aggregate_setup
+      run_once: true
+
+- name: Refresh miner conf when support gpu
+  gather_facts: false
+  hosts: miner-api
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: miner
+        tasks_from: miner_install
+      run_once: true
+      when: enable_miner | bool and support_gpu == "True"
+
+- name: Synchronize hosts data to miner db
+  gather_facts: false
+  hosts: miner-api
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: miner
+        tasks_from: miner_db_init
+      run_once: true
+      when: enable_miner | bool
+
+- name: Apply role neutron
+  gather_facts: false
+  hosts: compute-added
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: neutron,
+        tags: neutron,
+        when: enable_neutron | bool }

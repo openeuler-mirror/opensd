@@ -1,0 +1,29 @@
+---
+### base
+haproxy_packages_name: "haproxy"
+haproxy_package_state: "present"
+
+haproxy_bind_on_non_local: true
+
+### template parameters
+syslog_udp_port: "5140"
+syslog_server: "{{ api_interface_address }}"
+syslog_haproxy_facility: "local1"
+
+haproxy_max_connections: "40000"
+
+haproxy_client_timeout: "1m"
+haproxy_server_timeout: "1m"
+
+haproxy_defaults_balance: "roundrobin"
+
+haproxy_stats_port: "1984"
+
+haproxy_user: "openstack"
+haproxy_password: "openstack"
+
+haproxy_glance_api_client_timeout: "6h"
+haproxy_glance_api_server_timeout: "6h"
+
+haproxy_file_limits: 65535
+

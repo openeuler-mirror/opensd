@@ -1,0 +1,27 @@
+#!/bin/bash
+set -o xtrace
+
+export vgpu_types="{{ multi_vgpu_types | join(' ') }}"
+
+# using virsh cmd get pci addresses
+pci_addresses=`echo -ne $(virsh nodedev-list --cap mdev_types) | sed 's/pci_//g' | sed 's/_/:/g'`
+pci_addresses=($pci_addresses)
+
+enabled_vgpu_types=""
+c_num=0
+gpu_dev=`virsh nodedev-list --cap mdev_types |sed -n '1p'`
+for vgpu_type in $vgpu_types; do
+type_name=`echo $vgpu_type | cut -d ":" -f 1`
+device_num=`echo $vgpu_type | cut -d ":" -f 2`
+
+# Get type id using vgpu type name
+type_id=`virsh nodedev-dumpxml $gpu_dev | grep -B1 $type_name | grep "type id" |  cut -d "'" -f 2`
+# Assign pci addresses to vgpu type, then print it
+pci_add_for_one_type=`echo ${pci_addresses[@]:$c_num:$device_num} | sed 's/ /,/g'`
+echo "vgpu_"$type_id"="${pci_add_for_one_type}
+c_num=$c_num+$device_num
+enabled_vgpu_types=$enabled_vgpu_types$type_id","
+done
+echo "enabled_vgpu_types="${enabled_vgpu_types%?}
+
+set +o xtrace

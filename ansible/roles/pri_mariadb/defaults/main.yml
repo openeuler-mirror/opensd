@@ -1,0 +1,42 @@
+---
+pri_mariadb_packages_name:
+  - "MariaDB-common"
+  - "MariaDB-server"
+  - "MariaDB-client"
+  - "MariaDB-shared"
+  - "MariaDB-devel"
+  - "MariaDB-backup"
+  - "galera-4"
+  - "MySQL-python"
+  - "libzstd"
+  - "mariadb3307"
+  - "mariadb3308"
+pri_mariadb_package_state: "present"
+
+galera_server_bootstrap_node: "{{ groups[galera_group_name|default('pri_mariadb')][0] }}"
+galera_ignore_cluster_state: False
+
+galera_root_user: root
+
+mariadb_ports:
+  - server_port: 3307
+    wsrep_port: 4569
+    ist_port: 4571
+    sst_port: 4445
+  - server_port: 3308
+    wsrep_port: 4570
+    ist_port: 4572
+    sst_port: 4446
+
+galera_file_limits: 65535
+galera_startup_timeout: 1800
+galera_disable_privatedevices: yes
+
+### galera.cnf
+api_interface_address: eth0
+cmp_galera_cluster_name: ""
+wsrep_sst_method: "mariabackup"
+galera_mariadb_service_name: "mariadb"
+cmp_galera_sst_user: ''
+cmp_galera_sst_password: ''
+

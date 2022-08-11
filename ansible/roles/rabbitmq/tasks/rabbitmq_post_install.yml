@@ -1,0 +1,52 @@
+---
+- name: Create rabbitmq systemd service config dir
+  file:
+    path: "/etc/systemd/system/rabbitmq-server.service.d"
+    state: "directory"
+    group: "root"
+    owner: "root"
+    mode: "0755"
+  tags:
+    - rabbitmq-config
+
+- name: Apply resource limits (systemd)
+  template:
+    src: "limits.conf.j2"
+    dest: "/etc/systemd/system/rabbitmq-server.service.d/limits.conf"
+  register: rabbit_resource_limit
+
+- name: Add automatic restart on failure
+  template:
+    src: systemd-restart-on-failure.conf.j2
+    dest: "/etc/systemd/system/rabbitmq-server.service.d/systemd-restart-on-failure.conf"
+  register: rabbit_restart_on_failure
+
+- name: Reload the systemd daemon
+  systemd:
+    daemon_reload: yes
+  when:
+    - rabbit_resource_limit is changed
+    - rabbit_restart_on_failure is changed
+  tags:
+    # don't trigger ANSIBLE0016
+    - skip_ansible_lint
+
+- name: Configure rabbitmq plugins
+  rabbitmq_plugin:
+    names: "{{ item.name }}"
+    state: "{{ item.state }}"
+  with_items: "{{ rabbitmq_plugins }}"
+  notify: Restart rabbitmq server (ALL)
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: Apply rabbitmq policies
+  rabbitmq_policy:
+    node: "rabbit@{{ ansible_hostname }}"
+    name: "{{ item.name }}"
+    pattern: "{{ item.pattern }}"
+    priority: "{{ item.priority | default(0) }}"
+    tags: "{{ item.tags }}"
+  with_items: "{{ rabbitmq_policies }}"
+  notify: Restart rabbitmq server (ALL)

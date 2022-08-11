@@ -1,0 +1,26 @@
+---
+- name: Setup nova user ssh auth
+  block:
+    - name: Generate the nova system user ssh key
+      user:
+        name: "{{ nova_system_user_name }}"
+        generate_ssh_key: "yes"
+
+    - name: Get public key contents and store as var
+      slurp:
+        src: "{{ nova_system_home_folder }}/.ssh/id_rsa.pub"
+      register: nova_pub
+      changed_when: false
+
+    - name: Register a fact for the nova pub key
+      set_fact:
+        nova_pubkey: "{{ groups[nova_cell_compute_group] | map('extract', hostvars, 'nova_pub') | map(attribute='content') | map('b64decode') | join('\n') | b64encode }}"
+      when: inventory_hostname == groups[nova_cell_compute_group][0]
+
+    - name: Create authorized keys file from host vars
+      authorized_key:
+        user: "{{ nova_system_user_name }}"
+        key: "{{ nova_pubkey | b64decode }}"
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups[nova_cell_compute_group] }}"
+      when: inventory_hostname == groups[nova_cell_compute_group][0]

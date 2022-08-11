@@ -1,0 +1,63 @@
+---
+- name: Check if fernet keys already exist
+  stat:
+    path: "{{ keystone_fernet_tokens_key_repository }}/0"
+  register: _fernet_keys
+
+- name: Create fernet keys for Keystone
+  command: >
+    {{ keystone_bin }}/keystone-manage fernet_setup
+                                       --keystone-user "{{ keystone_system_user_name }}"
+                                       --keystone-group "{{ keystone_system_group_name }}"
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  when: not _fernet_keys.stat.exists
+
+- name: Rotate fernet keys for Keystone
+  command: >
+    {{ keystone_bin }}/keystone-manage fernet_rotate
+                                       --keystone-user "{{ keystone_system_user_name }}"
+                                       --keystone-group "{{ keystone_system_group_name }}"
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  when: _fernet_keys.stat.exists
+
+- name: Distribute the fernet key repository
+  command: >
+    rsync -e 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+          -avz
+          --delete
+          {{ keystone_fernet_tokens_key_repository }}/
+          {{ keystone_system_user_name }}@{{ hostvars[item]['ansible_host'] }}:{{ keystone_fernet_tokens_key_repository }}/
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  changed_when: false
+  with_items: "{{ groups['keystone'][1:] }}"
+  tags:
+    - skip_ansible_lint
+
+- name: Drop fernet key auto rotate script
+  template:
+    src: "keystone-fernet-rotate.sh.j2"
+    dest: "{{ keystone_fernet_auto_rotation_script }}"
+    owner: "{{ keystone_system_user_name }}"
+    group: "{{ keystone_system_group_name }}"
+    mode: "0755"
+
+# This creates the auto rotation job on the first keystone host.
+- name: Create auto rotation job
+  cron:
+    name: "Fernet auto rotate job"
+    special_time: "{{ keystone_fernet_rotation }}"
+    user: "{{ keystone_system_user_name }}"
+    job: "{{ keystone_fernet_auto_rotation_script }}"
+    cron_file: keystone-fernet-rotate
+
+# This makes sure that no auto rotation jobs are on any other hosts.
+- name: Remove extra auto rotation job
+  cron:
+    name: "Fernet auto rotate job"
+    cron_file: keystone-fernet-rotate
+    state: "absent"
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups['keystone'][1:] }}"

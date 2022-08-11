@@ -1,0 +1,380 @@
+---
+################
+# Base options
+################
+ansible_managed: "Managed by ansible"
+
+# The directory to store the config files on the destination node
+node_config_directory: "/etc/opensd/"
+
+# The directory to merge custom config files the opensd's config files
+node_custom_config: "/etc/opensd/custom"
+
+# vip address
+opensd_vip_address:
+
+# Ceph monitor host,must be added SSH public key
+az_cephmon_compose: []
+
+# By default, Sunshine API services bind to the network address assigned
+# to the api_interface.  Allow the bind address to be an override.
+api_interface_address: "{{ hostvars[inventory_hostname]['ansible_' + api_interface]['ipv4']['address'] }}"
+
+yumrepo_host:
+
+# The enviroment you want to depoly, valid options are [ test, production ]
+# This parameter will decision which yum repo will be used
+enviroment: test
+
+manage_yum_repo: "yes"
+
+upgrade_all_packages: "yes"
+
+# Enable `/etc/hosts` file modify, valid options are [yes, no]
+# Set to no for the production environment, because the hosts file maintained by operators,
+# the develop/testing environment is set to yes, for the hosts file maintained by deployers.
+enable_hosts_file_modify: "no"
+
+################
+# Chrony options
+################
+# A list contains ntp servers
+external_ntp_servers: []
+
+####################
+# Database options
+####################
+database_address: "{{ opensd_vip_address }}"
+database_user:
+database_port:
+galera_root_user:
+nova_api_mysql_user: nova_api
+nova_api_database_name: nova_api
+
+###################
+# Messaging options
+###################
+oslomsg_openstack_user:
+
+rpc_transport_url: "rabbit://{% for host in groups['rabbitmq'] %}{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_port }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+cell_rpc_transport_url: "rabbit://{% for host in groups['nova-conductor'] %}{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_port }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+notify_transport_url: "rabbit://{% for host in groups['rabbitmq'] %}{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_port }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+####################
+# Networking options
+####################
+network_interface: "eth0"
+neutron_external_interface: "eth1"
+api_interface: "{{ network_interface }}"
+cidr_netmask: 16
+
+# The default ports used by each service.
+# The list should be in alphabetical order
+cinder_api_port: "8776"
+glance_api_port: "9292"
+trove_api_port: "8779"
+haproxy_trove_api_port: "8779"
+glance_registry_port: "9191"
+haproxy_stats_port: "1984"
+keystone_service_port: "5000"
+mariadb_port: "{{ database_port }}"
+mariadb_wsrep_port: "4567"
+mariadb_ist_port: "4568"
+mariadb_sst_port: "4444"
+memcached_port: "11211"
+neutron_server_port: "9696"
+nova_api_port: "8774"
+nova_metadata_port: "8775"
+nova_novncproxy_port: "6080"
+placement_api_port: "8780"
+rabbitmq_management_port: "15672"
+miner_api_port: "9999"
+haproxy_miner_api_port: "19999"
+ironic_service_port: "6385"
+ironic_inspector_service_port: 5050
+dims_agent_api_port: "32100"
+
+####################
+# Pacemaker options
+####################
+# cluster check resource interval
+cluster_check_interval: 5
+
+####################
+# Memcached options
+####################
+memcached_listen: "{{ api_interface_address }}"
+
+####################
+# OpenStack options
+####################
+openstack_logging_debug: "False"
+
+openstack_service_workers: "{{ [ansible_processor_vcpus, 5]|min }}"
+
+# These roles are required for Sunshine to be operation, however a savvy deployer
+# could disable some of these required roles and run their own services.
+enable_glance: "yes"
+enable_haproxy: "{{ 'no' if (opensd_vip_address == hostvars[groups['control'][0]]['ansible_' +  hostvars[groups['control'][0]]['api_interface']]['ipv4']['address'] and groups['control']|count() < 2) else 'yes' }}"
+enable_pacemaker: "{{ enable_haproxy }}"
+enable_keystone: "yes"
+enable_mariadb: "yes"
+enable_memcached: "yes"
+enable_neutron: "yes"
+enable_nova: "yes"
+enable_rabbitmq: "yes"
+enable_ceph_client: "yes"
+enable_cell: "no"
+enable_trove: "no"
+enable_ironic: "no"
+
+# Most memcache clients handle load-balancing via client side
+# hashing (consistent or not) logic, so going under the covers and messing
+# with things that the clients are not aware of is general wrong (but this
+# keeps the default as is...)
+enable_haproxy_memcached: "no"
+
+# Additional optional OpenStack features and services are specified here
+enable_chrony: "yes"
+enable_cinder: "yes"
+enable_miner: "no"
+enable_pri_mariadb: "no"
+
+####################
+# RabbitMQ options
+####################
+rabbitmq_cluster_name:
+rabbitmq_hipe_compile:
+rabbitmq_user:
+rabbitmq_port:
+rabbitmq_policies:
+  - name: "HA"
+    pattern: '^(?!(amq\.)|(.*_fanout_)|(reply_)).*'
+    priority: 0
+    tags: "ha-mode=all"
+
+####################
+# HAProxy options
+####################
+haproxy_user: "openstack"
+haproxy_max_connections: "40000"
+####################
+# Keystone options
+####################
+keystone_admin_user_name: admin
+keystone_admin_tenant_name: admin
+
+# Keystone fernet token expiry in seconds. Default is 1 day.
+fernet_token_expiry: 86400
+# Keystone window to allow expired fernet tokens. Default is 2 days.
+fernet_token_allow_expired_window: 172800
+# Keystone fernet key rotation interval in seconds. Default is sum of token
+# expiry and allow expired window, 3 days. This ensures the minimum number
+# of keys are active. If this interval is lower than the sum of the token
+# expiry and allow expired window, multiple active keys will be necessary.
+fernet_key_rotation_interval: "{{ fernet_token_expiry + fernet_token_allow_expired_window }}"
+
+keystone_auth_url: "http://{{ opensd_vip_address }}:{{ keystone_service_port }}"
+keystone_service_region: "RegionOne"
+
+#######################
+# Ceph client options
+#######################
+
+#######################
+# Glance options
+#######################
+# Service Type and Data
+glance_service_region: RegionOne
+glance_service_name: glance
+glance_service_proto: http
+glance_service_type: image
+glance_service_description: "Glance Image Service"
+glance_service_user_name: glance
+glance_service_project_name: service
+glance_service_project_domain_id: default
+glance_service_user_domain_id: default
+glance_service_publicurl: "http://{{ opensd_vip_address }}:{{ glance_api_port }}"
+glance_service_internalurl: "http://{{ opensd_vip_address }}:{{ glance_api_port }}"
+glance_service_adminurl: "http://{{ opensd_vip_address }}:{{ glance_api_port }}"
+glance_keystone_auth_plugin: password
+
+
+#######################
+# Trove options
+#######################
+# Service Type and Data
+trove_service_region: RegionOne
+trove_service_name: trove
+trove_service_proto: http
+trove_service_type: database
+trove_service_description: "Database"
+trove_service_user_name: trove
+trove_service_project_name: service
+trove_service_project_domain_id: default
+trove_service_user_domain_id: default
+trove_service_publicurl: "http://{{ opensd_vip_address }}:{{ trove_api_port }}/v1.0/%(project_id)s"
+trove_service_internalurl: "http://{{ opensd_vip_address }}:{{ trove_api_port }}/v1.0/%(project_id)s"
+trove_service_adminurl: "http://{{ opensd_vip_address }}:{{ trove_api_port }}/v1.0/%(project_id)s"
+trove_keystone_auth_plugin: password
+
+#################################
+# Cinder options
+#################################
+# cinder type
+cinder_rbd_type_name: rbd
+cinder_rbd_backend_name: ceph-rbd
+cinder_default_volume_type: "{{ cinder_rbd_type_name }}"
+
+# cinder backends
+cinder_backends:
+  ceph-rbd:
+    volume_backend_name: "{{ cinder_rbd_backend_name }}"
+    volume_driver: cinder.volume.drivers.rbd.RBDDriver
+    rbd_pool: volumes
+    rbd_ceph_conf: /etc/ceph/ceph.conf
+    rbd_flatten_volume_from_snapshot: false
+    rbd_max_clone_depth: 5
+    glance_api_version: 2
+    rbd_store_chunk_size: 4
+    rados_connect_timeout: -1
+    rbd_user: cinder
+    rbd_secret_uuid: "{{ nova_ceph_client_uuid }}"
+    rbd_pool_type: hdd
+
+## Service Type and Data
+cinder_service_region: RegionOne
+cinder_service_name: cinderv3
+cinder_service_port: 8776
+cinder_service_type: volumev3
+cinder_service_description: "Cinder Volume Service"
+cinder_service_user_name: cinder
+cinder_service_project_name: service
+cinder_service_project_domain_id: default
+cinder_service_user_domain_id: default
+cinder_service_publicurl: "http://{{ opensd_vip_address }}:{{ cinder_service_port }}/v3/%(project_id)s"
+cinder_service_internalurl: "http://{{ opensd_vip_address }}:{{ cinder_service_port }}/v3/%(project_id)s"
+cinder_service_adminurl: "http://{{ opensd_vip_address }}:{{ cinder_service_port }}/v3/%(project_id)s"
+
+#######################
+# Neutron options
+#######################
+
+# neutron provider
+neutron_provider_networks:
+  network_types: "vlan"
+  network_vlan_ranges: "default:102:199"
+  network_mappings: "default:br-provider"
+  network_interface: "{{ neutron_external_interface }}"
+
+# neutron auth
+neutron_service_project_name: service
+neutron_service_project_domain_id: default
+neutron_service_user_domain_id: default
+neutron_service_role_name: admin
+neutron_service_user_name: neutron
+neutron_service_name: neutron
+neutron_service_type: network
+neutron_service_description: "OpenStack Networking"
+neutron_service_port: 9696
+neutron_service_region: RegionOne
+neutron_keystone_auth_plugin: "{{ neutron_keystone_auth_type }}"
+neutron_keystone_auth_type: password
+neutron_service_publicurl: "http://{{ opensd_vip_address }}:{{ neutron_server_port }}"
+neutron_service_internalurl: "http://{{ opensd_vip_address }}:{{ neutron_server_port }}"
+neutron_service_adminurl: "http://{{ opensd_vip_address }}:{{ neutron_server_port }}"
+
+# neutron vxlan and fwaas Configuration
+enable_vxlan_network_type: True
+enable_neutron_fwaas: True
+
+# sdn controller info
+enable_sdn_controller: True
+sdn_controller_ip_address: ""
+sdn_controller_username: ""
+sdn_controller_password: ""
+fabric_name: "dc1"
+ext_net_subnet_fake_gw_ip: ""
+ext_net_subnet_fake_cidr: ""
+port_fake_ip_addr: ""
+
+
+#######################
+# Nova options
+#######################
+## Nova Auth
+nova_service_region: RegionOne
+nova_service_project_name: "service"
+nova_service_project_domain_id: default
+nova_service_user_domain_id: default
+nova_service_user_name: "nova"
+nova_service_role_name: "admin"
+
+# Keystone authentication middleware
+nova_keystone_auth_plugin: password
+
+# Nova enabled apis
+nova_enabled_apis: "osapi_compute,metadata"
+
+# Nova v2.1
+nova_service_name: nova
+nova_service_type: compute
+nova_service_description: "Nova Compute Service"
+nova_service_publicurl: "http://{{ opensd_vip_address }}:{{ nova_api_port }}/v2.1"
+nova_service_internalurl: "http://{{ opensd_vip_address }}:{{ nova_api_port }}/v2.1"
+nova_service_adminurl: "http://{{ opensd_vip_address }}:{{ nova_api_port }}/v2.1"
+
+nova_libvirt_images_rbd_pool: "volumes"
+nova_ceph_rbd_user: "cinder"
+
+nova_metadata_proxy_secret:
+
+#######################
+# Ironic options
+#######################
+ironic_service_address: "{{ opensd_vip_address if (groups['baremetal'] | count() > 1 or groups['baremetal'] | count() == 0) else hostvars[groups['baremetal'][0]]['ansible_' + api_interface]['ipv4']['address'] }}"
+# Ironic service info
+ironic_service_name: ironic
+ironic_service_type: baremetal
+ironic_service_description: "Ironic baremetal provisioning service"
+ironic_service_publicurl: "http://{{ ironic_service_address }}:{{ ironic_service_port }}"
+ironic_service_adminurl: "http://{{ ironic_service_address }}:{{ ironic_service_port }}"
+ironic_service_internalurl: "http://{{ ironic_service_address }}:{{ ironic_service_port }}"
+ironic_service_region: RegionOne
+ironic_service_project_name: "service"
+ironic_service_project_domain_id: default
+ironic_service_user_domain_id: default
+ironic_service_role_name: "admin"
+ironic_keystone_auth_type: password
+ironic_dnsmasq_interface: eth1.2799
+ironic_dnsmasq_dhcp_range: 
+
+# Ironic-inspector service info
+ironic_inspector_service_user_name: ironic-inspector
+ironic_inspector_service_name: ironic-inspector
+ironic_inspector_service_type: baremetal-introspection
+ironic_inspector_service_description: "Ironic inspector baremetal provisioning service"
+ironic_inspector_service_publicurl: "http://{{ ironic_service_address }}:{{ ironic_inspector_service_port }}/v1"
+ironic_inspector_service_adminurl: "http://{{ ironic_service_address }}:{{ ironic_inspector_service_port }}/v1"
+ironic_inspector_service_internalurl: "http://{{ ironic_service_address }}:{{ ironic_inspector_service_port }}/v1"
+ironic_inspector_service_region: RegionOne
+ironic_inspector_service_project_name: "service"
+ironic_inspector_service_project_domain_id: default
+ironic_inspector_service_user_domain_id: default
+ironic_inspector_service_role_name: "admin"
+ironic_inspector_keystone_auth_type: password
+
+# Support GPU ironic types
+enabled_gpu_types: "BMGPU_T4_16G,BMGPU_V100_16G"
+
+#######################
+# Dimsagent options
+#######################
+enable_dimsagent: "no"
+# Address and domain name for s2
+s3_address_domain_pair:
+  - host_ip:
+    host_name:
+

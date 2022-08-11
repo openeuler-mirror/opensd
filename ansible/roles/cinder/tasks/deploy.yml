@@ -1,0 +1,40 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: cinder_pre_install.yml
+
+- include_tasks: cinder_install.yml
+
+- name: Install pcs cluster for cinder_volume
+  include_role:
+    name: pacemaker
+    tasks_from: config.yml
+  vars:
+    pcs_cluster_group_name: "cinder_volume_{{ availability_zone }}"
+  when:
+    - cinder_services['cinder-volume']['group'] in group_names
+    - enable_pacemaker | bool
+
+- name: Install pcs cluster for cinder_backup
+  include_role:
+    name: pacemaker
+    tasks_from: config.yml
+  vars:
+    pcs_cluster_group_name: "cinder_backup_{{ availability_zone }}"
+  when:
+    - cinder_services['cinder-backup']['group'] in group_names
+    - enable_pacemaker | bool
+
+- include_tasks: cinder_db_setup.yml
+  when: inventory_hostname == cinder_setup_host
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: cinder_register.yml
+  when: inventory_hostname == cinder_setup_host
+
+# (TODO)
+- include_tasks: cinder_check.yml
+
+- include_tasks: cinder_type_setup.yml
+  when: inventory_hostname == cinder_setup_host

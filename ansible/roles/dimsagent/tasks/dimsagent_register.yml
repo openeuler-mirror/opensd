@@ -1,0 +1,68 @@
+---
+- name: Setup the service
+  block:
+    - name: Add service to the keystone service catalog
+      os_keystone_service:
+        cloud: default
+        state: present
+        name: "{{ dims_agent_service_name }}"
+        service_type: "{{ dims_agent_service_type }}"
+        description: "{{ dims_agent_service_description }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add service user
+      os_user:
+        cloud: default
+        state: present
+        name: "{{ dims_agent_service_user_name }}"
+        password: "{{ dims_agent_service_password }}"
+        domain: default
+        default_project: "{{ dims_agent_service_project_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+
+    - name: Add service user to admin role
+      os_user_role:
+        cloud: default
+        state: present
+        user: "{{ dims_agent_service_user_name }}"
+        role: "{{ dims_agent_role_name }}"
+        project: "{{ dims_agent_service_project_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add endpoints to keystone endpoint catalog
+      os_keystone_endpoint:
+        cloud: default
+        state: present
+        service: "{{ dims_agent_service_name }}"
+        endpoint_interface: "{{ item.interface }}"
+        url: "{{ item.url }}"
+        region: "{{ dims_agent_service_region }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      with_items:
+        - interface: "public"
+          url: "{{ dims_agent_service_publicurl }}"
+        - interface: "internal"
+          url: "{{ dims_agent_service_internalurl }}"
+        - interface: "admin"
+          url: "{{ dims_agent_service_adminurl }}"

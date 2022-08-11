@@ -1,0 +1,23 @@
+---
+# The nova-status upgrade check command is typically run after upgrading the
+# controller services to new code, but is also OK to run for a greenfield
+# install to verify everything is setup correctly. This must run after cell
+# mapping setup and online data migrations have run.
+# https://docs.openstack.org/nova/latest/cli/nova-status.html
+- name: Run nova-status upgrade check to validate a healthy configuration
+  command: "{{ nova_bin }}/nova-status upgrade check"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  register: nova_status_upgrade_check
+  until: nova_status_upgrade_check is success
+  retries: 3
+  delay: 15
+  # The nova-status upgrade check command has three standard return codes:
+  # 0: all checks were successful
+  # 1: warning: there might be some checks that require investigation, but
+  #    generally will not block an automated install/upgrade; digging into
+  #    warnings is useful for debugging post-install/upgrade issues
+  # 2: at least one check failed and must stop the install/upgrade because
+  #    something was not setup properly
+  failed_when: "nova_status_upgrade_check.rc not in [0, 1]"
+  changed_when: false

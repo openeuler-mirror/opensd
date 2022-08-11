@@ -1,0 +1,91 @@
+---
+- name: create the system group
+  group:
+    name: "{{ nova_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the nova system user
+  user:
+    name: "{{ nova_system_user_name }}"
+    group: "{{ nova_system_group_name }}"
+    comment: "{{ nova_system_comment }}"
+    shell: "{{ nova_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ nova_system_home_folder }}"
+    generate_ssh_key: "yes"
+
+- name: Create nova dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(nova_system_user_name) }}"
+    group: "{{ item.group|default(nova_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "/etc/nova", mode: "0750" }
+    - { path: "/etc/nova/rootwrap.d", owner: "root", group: "root" }
+    - { path: "{{ nova_system_home_folder }}" }
+    - { path: "{{ nova_system_home_folder }}/.ssh", mode: "0700" }
+    - { path: "{{ nova_system_home_folder }}/instances" }
+    - { path: "{{ nova_lock_path }}" }
+    - { path: "{{ nova_log_dir }}", mode: "0750"}
+
+- name: Ensure nova-placement-api.log has correct permissions
+  file:
+    path: "{{ nova_log_dir }}/nova-placement-api.log"
+    state: touch
+    owner: "{{ nova_system_user_name }}"
+    group: "{{ nova_system_user_name }}"
+    mode: "0644"
+  when:
+    - inventory_hostname in groups['nova-api']
+
+- name: Create nova DB for service
+  mysql_db:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ item }}"
+    state: "present"
+  no_log: True
+  with_items:
+    - "{{ nova_api_database_name }}"
+    - "{{ nova_cell0_database_name }}"
+  when: inventory_hostname == nova_setup_host
+
+- name: Grant access to nova DBs for the services
+  mysql_user:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ item['name'] }}"
+    password: "{{ item['password'] }}"
+    host: "{{ item['host'] }}"
+    state: "present"
+    priv: "{{ item['database'] }}.*:ALL"
+    append_privs: "{{ item['db_append_privs'] | default(omit) }}"
+  with_items:
+    - name: "{{ nova_api_mysql_user }}"
+      password: "{{ nova_api_mysql_password }}"
+      host: "localhost"
+      database: "{{ nova_api_database_name }}"
+      db_append_privs: "yes"
+    - name: "{{ nova_api_mysql_user }}"
+      password: "{{ nova_api_mysql_password }}"
+      host: "%"
+      database: "{{ nova_api_database_name }}"
+      db_append_privs: "yes"
+    - name: "{{ nova_cell0_mysql_user }}"
+      password: "{{ nova_cell0_mysql_password }}"
+      host: "localhost"
+      database: "{{ nova_cell0_database_name }}"
+      db_append_privs: "yes"
+    - name: "{{ nova_cell0_mysql_user }}"
+      password: "{{ nova_cell0_mysql_password }}"
+      host: "%"
+      database: "{{ nova_cell0_database_name }}"
+      db_append_privs: "yes"
+  no_log: True
+  when: inventory_hostname == nova_setup_host

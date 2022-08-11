@@ -1,0 +1,53 @@
+---
+# Author: weimeng <weim6@chinaunicom.cn>
+- name: Create nova aggregate group
+  os_nova_host_aggregate:
+    cloud: default
+    state: present
+    name: "{{ item | regex_replace('^az(.*)$','ag\\1') | regex_replace('^AZ(.*)$','AG\\1') }}"
+    availability_zone: "{{ item }}"
+    hosts: |
+      {% set host_list = [] %}
+      {% for host in (groups['nova-compute'] + groups['baremetal']) %}
+      {% if item in hostvars[host]['availability_zone'] %}
+      {% set _ = host_list.append(host if (host in groups['nova-compute']) else host+'-'+item.split('.')[0]) %}
+      {% endif %}
+      {% endfor %}
+      {{ host_list }}
+  with_items: "{{ groups['nova-compute'] | map('extract', hostvars, 'availability_zone') | unique | list }}"
+
+- name: Get General server 
+  set_fact:
+    general_servers: |
+      {% set server_list = [] %}
+      {% for host in groups['nova-compute'] %}
+      {% if hostvars[host]['gpu_server_type'] is not defined %}
+      {% set _ = server_list.append(host) %}
+      {% endif %}
+      {% endfor %}
+      {{ server_list }}
+
+
+- name: Get vGPU server
+  set_fact:
+    vgpu_servers: |
+      {% set server_list = [] %}
+      {% for host in groups['nova-compute'] %}
+      {% if hostvars[host]['gpu_server_type'] is defined %}
+      {% set _ = server_list.append(host) %}
+      {% endif %}
+      {% endfor %}
+      {{ server_list }}
+
+- name: Drop server trait set auto script
+  template:
+    src: "trait_set.sh.j2"
+    dest: "/usr/local/bin/trait_set"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+- name: Run trait set for all servers
+  command:  /usr/local/bin/trait_set "{{ vgpu_servers | join(' ') }}" "{{ general_servers | join(' ') }}"
+  run_once: True
+  delegate_to: "{{ groups['control'][0] }}"

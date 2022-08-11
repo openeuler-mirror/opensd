@@ -1,0 +1,68 @@
+---
+- name: Setup the service
+  block:
+    - name: Add service to the keystone service catalog
+      os_keystone_service:
+        cloud: default
+        state: present
+        name: "{{ neutron_service_name }}"
+        service_type: "{{ neutron_service_type }}"
+        description: "{{ neutron_service_description }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add service user
+      os_user:
+        cloud: default
+        state: present
+        name: "{{ neutron_service_user_name }}"
+        password: "{{ neutron_service_password }}"
+        domain: default
+        default_project: "{{ neutron_service_project_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+
+    - name: Add service user to admin role
+      os_user_role:
+        cloud: default
+        state: present
+        user: "{{ neutron_service_user_name }}"
+        role: "{{ neutron_service_role_name }}"
+        project: "{{ neutron_service_project_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add endpoints to keystone endpoint catalog
+      os_keystone_endpoint:
+        cloud: default
+        state: present
+        service: "{{ neutron_service_name }}"
+        endpoint_interface: "{{ item.interface }}"
+        url: "{{ item.url }}"
+        region: "{{ neutron_service_region }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      with_items:
+        - interface: "public"
+          url: "{{ neutron_service_publicurl }}"
+        - interface: "internal"
+          url: "{{ neutron_service_internalurl }}"
+        - interface: "admin"
+          url: "{{ neutron_service_adminurl }}"

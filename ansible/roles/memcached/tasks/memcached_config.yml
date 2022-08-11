@@ -1,0 +1,53 @@
+---
+- name: Create memcached log dir
+  file:
+    path: "{{ memcached_log | dirname }}"
+    state: directory
+    owner: root
+    group: root
+
+- name: Apply memcached config
+  template:
+    src: "memcached.j2"
+    dest: "/etc/sysconfig/memcached"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  notify: Restart memcached
+
+- name: Create memcached systemd service config dir
+  file:
+    path: "/etc/systemd/system/memcached.service.d"
+    state: "directory"
+    group: "root"
+    owner: "root"
+    mode: "0755"
+
+- name: Apply systemd options
+  template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/memcached.service.d/{{ item.dest }}"
+    mode: "0644"
+  with_items:
+    - { src: "systemd.limits.conf.j2", dest: "limits.conf" }
+    - { src: "systemd.restart.conf.j2", dest: "restart.conf" }
+    - { src: "systemd.slice.conf.j2", dest: "slice.conf" }
+    - { src: "systemd.without-privatedevices.conf.j2", dest: "without-privatedevices.conf" }
+  notify:
+    - Restart memcached
+
+- name: Configure soft file limits
+  lineinfile:
+    dest: "/etc/security/limits.conf"
+    regexp: "^{{ memcached_user }}.*soft.*nofile.*"
+    state: "present"
+    line: "{{ memcached_user }}\tsoft\tnofile\t\t{{ memcached_file_limits }}"
+    insertbefore: "^# End of file"
+
+- name: Configure hard file limits
+  lineinfile:
+    dest: "/etc/security/limits.conf"
+    regexp: "^{{ memcached_user }}.*hard.*nofile.*"
+    state: "present"
+    line: "{{ memcached_user }}\thard\tnofile\t\t{{ memcached_file_limits }}"
+    insertbefore: "^# End of file"

@@ -1,0 +1,10 @@
+---
+- include_tasks: "{{ opensd_action }}.yml"
+  vars:
+    server_port: "{{ outer_item.server_port }}"
+    wsrep_port: "{{ outer_item.wsrep_port }}"
+    ist_port: "{{ outer_item.ist_port }}"
+    sst_port: "{{ outer_item.sst_port }}"
+  with_items: "{{ mariadb_ports }}"
+  loop_control:
+    loop_var: outer_item

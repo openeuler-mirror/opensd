@@ -1,0 +1,118 @@
+---
+## Verbosity Options
+glance_logging_debug: "{{ openstack_logging_debug }}"
+glance_setup_host: "{{ groups['glance'][0] }}"
+glance_enabled_import_methods:
+  - glance-direct
+  - web-download
+  - copy-image
+
+# Set the package install state
+# Options are 'present' and 'latest'
+glance_package_name:
+  - openstack-glance
+glance_package_state: "present"
+
+glance_profiler_enabled: False
+glance_fatal_deprecations: False
+
+## System info
+glance_system_user_name: glance
+glance_system_group_name: glance
+glance_system_shell: /bin/false
+glance_system_comment: glance system user
+glance_system_user_home: "/var/lib/{{ glance_system_user_name }}"
+glance_bin: "/usr/bin"
+
+glance_registry_host: "{{ opensd_vip_address }}"
+glance_default_store: rbd
+glance_additional_stores:
+  - http
+glance_flavor: "{% if glance_default_store == 'rbd' %}keystone{% else %}keystone+cachemanagement{% endif %}"
+glance_show_image_direct_url: "{{ glance_default_store == 'rbd' }}"
+glance_show_multiple_locations: "{{ glance_default_store == 'rbd' }}"
+
+## API options
+glance_enable_v2_api: True
+# The v2 API does not require the registry service.
+# The registry service is scheduled for removal in the S cycle.
+glance_enable_v2_registry: False
+
+## Database info
+glance_db_setup_host: "{{ ('mariadb' in groups) | ternary(groups['mariadb'][0], 'localhost') }}"
+glance_database_name: glance
+glance_database_user: glance
+glance_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+glance_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('/etc/ssl/certs/galera-ca.pem') }}"
+glance_db_max_overflow: 200
+glance_db_max_pool_size: 500
+glance_db_pool_timeout: 30
+glance_db_min_pool_size: 100
+glance_db_max_retries: 5
+glance_db_retry_interval: 2
+glance_db_inc_retry_interval: true
+glance_db_max_retry_interval: 2
+
+glance_role_name: admin
+glance_api_bind_address: "{{ api_interface_address }}"
+glance_api_service_port: 9292
+
+glance_registry_bind_address: "{{ api_interface_address }}"
+glance_registry_port: 9191
+
+## Service Type and Data
+glance_service_region: RegionOne
+glance_service_name: glance
+glance_api_port: 9292
+glance_service_proto: http
+glance_service_type: image
+glance_service_description: "Glance Image Service"
+glance_service_user_name: glance
+glance_service_project_name: service
+glance_service_project_domain_id: default
+glance_service_user_domain_id: default
+glance_service_publicurl: "http://{{ opensd_vip_address }}:{{ glance_api_port }}"
+glance_service_internalurl: "http://{{ opensd_vip_address }}:{{ glance_api_port }}"
+glance_service_adminurl: "http://{{ opensd_vip_address }}:{{ glance_api_port }}"
+
+
+## Enable automatic parsing of X-Forwarded-Proto, etc. headers passed by the
+## load balancer.
+glance_proxy_headers_parsing: False
+
+## Keystone authentication middleware
+glance_keystone_auth_plugin: password
+
+## Glance config
+glance_image_cache_max_size: 10737418240
+
+# If ``glance_api_workers`` is unset the system will use half the number of available VCPUS to
+# compute the number of api workers to use.
+# glance_api_workers: 16
+
+# If ``glance_registry_workers`` is unset the system will use half the number of available VCPUS to
+# compute the number of api workers to use.
+# glance_registry_workers: 16
+
+## Cap the maximum number of threads / workers when a user value is unspecified.
+glance_api_threads_max: 16
+glance_api_threads: "{{ [[ansible_processor_vcpus|default(2) // 2, 1] | max, glance_api_threads_max] | min }}"
+
+glance_task_executor: taskflow
+glance_digest_algorithm: sha256
+
+## Glance policy
+glance_policy_file: policy.json
+glance_policy_default_rule: default
+glance_policy_dirs: policy.d
+
+## Ceph rbd Options
+glance_ceph_client: glance
+glance_rbd_store_pool: images
+glance_rbd_store_user: '{{ glance_ceph_client }}'
+glance_rbd_store_chunk_size: 8
+
+glance_profiler_hmac_key: my_hmac_key
+
+glance_amqp_durable_queues: true
+glance_rabbit_ha_queues: true

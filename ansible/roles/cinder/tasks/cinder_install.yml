@@ -1,0 +1,38 @@
+---
+- name: Ensure cinder packages installed
+  package:
+    name: "{{ cinder_package_list }}"
+    state: "{{ cinder_package_state }}"
+  register: packages_install
+  until: packages_install is success
+  retries: 5
+  delay: 2
+  notify: Restart cinder services
+
+- name: Copying over cinder.conf
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/cinder.conf.j2"
+      - "{{ node_custom_config }}/global.conf"
+      - "{{ node_custom_config }}/cinder.conf"
+      - "{{ node_custom_config }}/cinder/cinder.conf"
+      - "{{ node_custom_config }}/cinder/{{ inventory_hostname }}/cinder.conf"
+    dest: "/etc/cinder/cinder.conf"
+    mode: "0666"
+  become: true
+  notify:
+    - Restart cinder services
+
+- name: Copying over api-paste.ini
+  template:
+    src: "{{ item }}"
+    dest: "/etc/cinder/api-paste.ini"
+    owner: root
+    group: "{{ cinder_system_user_name }}"
+    mode: "0660"
+  with_first_found:
+    - "{{ node_custom_config }}/cinder/api-paste.ini"
+    - "api-paste.ini.j2"
+  when: cinder_services['cinder-api']['group'] in group_names
+  notify:
+    - Restart cinder services

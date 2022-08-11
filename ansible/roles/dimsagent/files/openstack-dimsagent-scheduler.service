@@ -1,0 +1,12 @@
+[Unit]
+Description=OpenStack Dimsagent Scheduler Server
+After=syslog.target network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python /usr/bin/dimsagent-scheduler --config-file /etc/dimsagent/dimsagent-scheduler.conf
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,109 @@
+---
+- name: Set nova config facts
+  set_fact: '{{ item.key }}="{{ item.value }}"'
+  with_dict: "{{ nova_virt_types[nova_virt_type] }}"
+  when:
+    - item.key not in hostvars[inventory_hostname] or item.key is undefined
+
+- name: Ensure nova packages installed
+  package:
+    name: "{{ nova_package_list }}"
+    state: "{{ nova_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  when: inventory_hostname not in groups[nova_services['ironic-nova-compute']['group']]
+  notify: Restart nova services
+
+- name: Ensure nova packages installed
+  package:
+    name: "{{ nova_package_list }}"
+    state: "{{ nova_package_state }}"
+  register: install_packages_for_ironic
+  until: install_packages_for_ironic is success
+  retries: 5
+  delay: 2
+  when: inventory_hostname in groups[nova_services['ironic-nova-compute']['group']]
+
+- name: Run get vcpu_pin_list auto script
+  script: "files/vcpu_pin_set.py -n {{ vcpu_reserve_num }}"
+  register: vcpu_pin_list
+
+- name: Set numa nodes num facts
+  set_fact:
+    vcpu_pin_set: |
+      {% set pin_set = nova_vcpu_pin_set %}
+      {% for comp in az_cephmon_compose %}
+      {%   if comp.availability_zone == hostvars[inventory_hostname]['availability_zone'] and comp.reserve_vcpu_based_on_numa | bool %}
+      {%     set _ = vcpu_pin_list.stdout %}
+      {%   endif %}
+      {% endfor %}
+      {{ pin_set }}
+
+- name: Get pass through servers
+  set_fact:
+    pass_through_servers: |
+      {% set server_list = [] %}
+      {% set pci_list = [] %}
+      {% for host in groups['nova-compute'] %}
+      {% if hostvars[host]['gpu_server_type'] is defined and hostvars[host]['gpu_server_type'] == 'pass_through'  %}
+      {% set pci_item = hostvars[host]['ansible_local']['openstack_ansible']['nova'] %}
+      {% if pci_item.product_id not in pci_list %}
+      {% set _ = pci_list.append(pci_item.product_id) %}
+      {% set _ = server_list.append(host) %}
+      {% endif %}
+      {% endif %}
+      {% endfor %}
+      {{ server_list }}
+
+- name: Copying over nova.conf
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/nova.conf.j2"
+      - "{{ node_custom_config }}/global.conf"
+      - "{{ node_custom_config }}/nova.conf"
+      - "{{ node_custom_config }}/nova/nova.conf"
+      - "{{ node_custom_config }}/nova/{{ inventory_hostname }}/nova.conf"
+    dest: "/etc/nova/nova.conf"
+    mode: "0666"
+  become: true
+  when: inventory_hostname not in groups[nova_services['ironic-nova-compute']['group']]
+  notify:
+    - Restart nova services
+
+- include_tasks: ironic_nova_compute_install.yml
+  vars:
+    ironic_availability_zone_full_name: "{{ outer_item }}"
+  with_items: "{{ hostvars[inventory_hostname]['availability_zone'].split(',') }}"
+  loop_control:
+    loop_var: outer_item
+  when: inventory_hostname in groups[nova_services['ironic-nova-compute']['group']]
+
+- name: Copying over rfb.js
+  copy:
+    src: rfb.js
+    dest: /usr/share/novnc/include/rfb.js
+    owner: root
+    group: root
+    mode: '0444'
+  become: true
+  when: inventory_hostname in groups[nova_cell_conductor_group]
+  notify:
+    - Restart nova services
+
+- name: Add commit button for password input
+  lineinfile:
+    dest: "/usr/share/novnc/vnc_auto.html"
+    regexp: "{{ item.re }}"
+    insertafter: "input type=password size=10 id=\"password_input\" class=\"noVNC_status\""
+    line: "{{ item.line }}"
+    backup: "yes"
+  with_items:
+    - re: 'input type="submit"'
+      line: "            msg += '<input type=\"submit\" value=\"确定\" style=\"width:45px;height:23px\">';"
+    - re: "nbsp"
+      line: "            msg += '&nbsp; &nbsp; &nbsp;';"
+  when: inventory_hostname in groups[nova_cell_conductor_group]
+  notify:
+    - Restart nova services

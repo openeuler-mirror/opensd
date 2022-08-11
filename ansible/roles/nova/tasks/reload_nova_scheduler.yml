@@ -1,0 +1,6 @@
+---
+- name: Restart nova-scheduler services
+  systemd:
+    name: "openstack-nova-scheduler"
+    state: "restarted"
+    enabled: yes

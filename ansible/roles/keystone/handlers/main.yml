@@ -1,0 +1,10 @@
+---
+- name: Restart httpd server
+  service:
+    name: httpd
+    state: restarted
+    enabled: yes
+  register: httpd_restart
+  until: httpd_restart is success
+  retries: 3
+  delay: 2

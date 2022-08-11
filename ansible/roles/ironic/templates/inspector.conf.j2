@@ -1,0 +1,67 @@
+[DEFAULT]
+debug = {{ debug }}
+auth_strategy = {{ ironic_auth_strategy }}
+timeout = 900
+rootwrap_config = /etc/ironic-inspector/rootwrap.conf
+logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(global_request_id)s %(request_id)s %(user_identity)s] %(instance)s%(message)s
+
+[capabilities]
+boot_mode = {{ boot_mode }}
+
+[database]
+backend = sqlalchemy
+connection = mysql+pymysql://{{ ironic_inspector_galera_user }}:{{ ironic_inspector_mysql_password }}@{{ ironic_galera_address }}/{{ ironic_inspector_galera_database }}
+min_pool_size = {{ ironic_db_min_pool_size }}
+max_pool_size = {{ ironic_db_max_pool_size }}
+pool_timeout = {{ ironic_db_pool_timeout }}
+max_retries = {{ ironic_db_max_retries }}
+max_overflow = {{ ironic_db_max_overflow }}
+db_retry_interval = {{ ironic_db_retry_interval }}
+db_inc_retry_interval = {{ ironic_db_inc_retry_interval }}
+db_max_retry_interval = {{ ironic_db_max_retry_interval }}
+db_max_retries = {{ ironic_db_max_retries }}
+
+[iptables]
+dnsmasq_interface = br-ctlplane
+
+[ironic]
+api_endpoint = {{ ironic_service_internalurl }}
+auth_type = {{ ironic_keystone_auth_type }}
+auth_url = {{ keystone_auth_url }}
+auth_strategy = keystone
+ironic_url = {{ ironic_service_internalurl }}
+os_region = {{ ironic_service_region }}
+project_name = {{ ironic_service_project_name }}
+project_domain_name = {{ ironic_service_project_domain_name }}
+user_domain_name = {{ ironic_service_user_domain_name }}
+username = {{ ironic_service_name }}
+password = {{ ironic_service_password }}
+
+[keystone_authtoken]
+auth_type = {{ ironic_inspector_keystone_auth_type }}
+auth_url = {{ keystone_auth_url }}
+www_authenticate_uri = {{ keystone_auth_url }}
+project_domain_name = {{ ironic_inspector_service_project_domain_name }}
+user_domain_name = {{ ironic_inspector_service_user_domain_name }}
+project_name = {{ ironic_inspector_service_project_name }}
+username = {{ ironic_inspector_service_user_name }}
+password = {{ ironic_inspector_service_password }}
+region_name = {{ keystone_service_region }}
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+token_cache_time = 300
+
+[processing]
+add_ports = active
+processing_hooks = $default_processing_hooks,local_link_connection,lldp_basic
+ramdisk_logs_dir = /var/log/ironic-inspector/ramdisk
+always_store_ramdisk_logs = true
+store_data =none
+
+[pxe_filter]
+driver = iptables
+
+[pci_devices]
+{% for item in pci_devices %}
+alias = {"vendor_id": "{{ item.vendor_id }}", "product_id": "{{ item.product_id }}", "name": "{{ item.name }}"}
+{% endfor %}

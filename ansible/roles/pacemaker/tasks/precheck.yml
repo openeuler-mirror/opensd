@@ -1,0 +1,8 @@
+---
+- name: Check if cluster consist of at least 2 nodes
+  fail:
+    msg: 'Cluster must have at least 2 members'
+  when:
+    - play_hosts|count() < 2
+    - enable_pacemaker | bool
+  run_once: true

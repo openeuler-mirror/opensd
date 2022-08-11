@@ -1,0 +1,32 @@
+---
+- name: Drop ironic check scripts
+  template:
+    src: "{{ item }}.j2"
+    dest: "/tmp/{{ item }}"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  with_items:
+    - check_controller.py
+    - check_ironic.py 
+    - check_info.cfg
+
+- name: Run check_controller.py script
+  shell: python /tmp/check_controller.py
+  register: check_controller_result
+  ignore_errors: True
+  failed_when: check_controller_result.rc != 0
+
+- name: print check_controller_result in line
+  debug:
+    msg: "{{ check_controller_result.stdout_lines }}"
+
+- name: Ensure ironic check scripts are absent
+  file:
+    path: "/tmp/{{ item }}"
+    state: absent
+  with_items:
+    - check_controller.py
+    - check_ironic.py
+    - check_info.cfg
+

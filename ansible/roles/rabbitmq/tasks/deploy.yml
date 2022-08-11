@@ -1,0 +1,15 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: rabbitmq_pre_install.yml
+
+- include_tasks: rabbitmq_install.yml
+
+- include_tasks: rabbitmq_post_install.yml
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: rabbitmq_cluster.yml
+
+- include_tasks: rabbitmq_register.yml
+  when: inventory_hostname == groups[rabbitmq_host_group][0]

@@ -1,0 +1,4 @@
+---
+- include_tasks: ironic_checks.yml
+  when: inventory_hostname == groups["control"][0]
+

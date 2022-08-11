@@ -1,0 +1,17 @@
+---
+- name: create the system group
+  group:
+    name: "{{ trove_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the trove system user
+  user:
+    name: "{{ trove_system_user_name }}"
+    group: "{{ trove_system_group_name }}"
+    comment: "{{ trove_system_comment }}"
+    shell: "{{ trove_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ trove_system_user_home }}"
+

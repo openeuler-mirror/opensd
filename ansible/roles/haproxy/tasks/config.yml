@@ -1,0 +1,52 @@
+---
+- name: create the haproxy system group
+  group:
+    name: "haproxy"
+    state: "present"
+    system: "yes"
+
+- name: Create the haproxy system user
+  user:
+    name: "haproxy"
+    group: "haproxy"
+    shell: "/sbin/nologin"
+    system: "yes"
+    createhome: "no"
+
+- name: Create haproxy dir
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "haproxy"
+    group: "haproxy"
+    mode: "0755"
+  with_items:
+    - "/var/log/haproxy/"
+
+- name: Ensure haproxy package installed
+  package:
+    name: "{{ haproxy_packages_name }}"
+    state: "{{ haproxy_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  notify: Restart haproxy service
+
+- name: Copy over haproxy.cfg
+  template:
+    src: 'haproxy.cfg.j2'
+    dest: /etc/haproxy/haproxy.cfg
+  notify: Restart haproxy service
+
+- include_tasks: config_extend.yml
+
+- name: Ensure haproxy service is started
+  service:
+    name: haproxy
+    state: started
+    enabled: true
+  register: start_haproxy
+  until: start_haproxy is success
+  retries: 5
+  delay: 2

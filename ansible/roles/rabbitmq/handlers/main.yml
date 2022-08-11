@@ -1,0 +1,36 @@
+---
+- name: "Ensure RabbitMQ nodes [1:] are stopped"
+  service:
+    name: rabbitmq-server
+    state: stopped
+  failed_when: false
+  listen: Restart rabbitmq server (ALL)
+  when:
+    - ansible_fqdn != rabbitmq_primary_cluster_node
+
+- name: "Ensure RabbitMQ node [0] is stopped"
+  service:
+    name: rabbitmq-server
+    state: stopped
+  failed_when: false
+  listen: Restart rabbitmq server (ALL)
+  when:
+    - ansible_fqdn == rabbitmq_primary_cluster_node
+
+- name: "Ensure RabbitMQ node [0] is started"
+  service:
+    name: rabbitmq-server
+    state: started
+    enabled: yes
+  listen: Restart rabbitmq server (ALL)
+  when:
+    - ansible_fqdn == rabbitmq_primary_cluster_node
+
+- name: "Ensure RabbitMQ nodes [1:] are started"
+  service:
+    name: rabbitmq-server
+    state: started
+    enabled: yes
+  listen: Restart rabbitmq server (ALL)
+  when:
+    - ansible_fqdn != rabbitmq_primary_cluster_node

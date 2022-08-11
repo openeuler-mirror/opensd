@@ -1,0 +1,38 @@
+# {{ ansible_managed }}
+
+# General
+[DEFAULT]
+debug = {{ debug }}
+
+# Drivers
+interface_driver = {{ neutron_plugins[neutron_plugin_type].driver_interface }}
+
+agent_mode = {{ neutron_plugins[neutron_plugin_type].l3_agent_mode }}
+
+# Conventional failover
+allow_automatic_l3agent_failover = True
+
+# Metadata
+enable_metadata_proxy = True
+
+ovs_use_veth = True
+
+# L3 plugins
+{% set l3_agent_plugins = [] %}
+{% if neutron_port_forwarding |bool %}
+{% set _ = l3_agent_plugins.append('port_forwarding') %}
+{% endif %}
+
+{% if neutron_fip_qos|bool %}
+{% set _ = l3_agent_plugins.append('fip_qos') %}
+{% endif %}
+
+{% if enable_neutron_fwaas|bool %}
+{% set _ = l3_agent_plugins.append('fwaas') %}
+{% endif %}
+
+{% if l3_agent_plugins|length > 0 %}
+[AGENT]
+extensions = {{ l3_agent_plugins | join(',') }}
+availability_zone = {{ availability_zone }}
+{% endif %}

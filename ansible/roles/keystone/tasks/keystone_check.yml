@@ -1,0 +1,10 @@
+---
+- name: Check whether if keystone service is accessible
+  uri:
+    url: "http://{{ ansible_host }}:{{ keystone_service_port }}"
+    method: "HEAD"
+    status_code: 300
+  register: _wait_check
+  until: _wait_check  is success
+  retries: 12
+  delay: 5

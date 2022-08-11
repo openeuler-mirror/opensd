@@ -1,0 +1,16 @@
+---
+- name: Create root user mysql client config
+  template:
+    src: "root_my.cnf.j2"
+    dest: "/root/.my.cnf"
+    mode: "0750"
+
+- name: Ensure haproxy user exist
+  mysql_user:
+    login_host: localhost
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    name: haproxy
+    host: "%"
+    state: present
+  when: ansible_local['openstack_ansible']['galera']['role'] == "master"

@@ -1,0 +1,125 @@
+---
+- name: Wait for service to be up
+  uri:
+    url: "http://{{ opensd_vip_address }}:{{ keystone_service_port }}"
+    method: "HEAD"
+    status_code: 300
+  register: _wait_check
+  until: _wait_check  is success
+  retries: 12
+  delay: 5
+
+- name: Bootstrap keystone admin and endpoint
+  command: |
+     {{ keystone_bin }}/keystone-manage bootstrap \
+     --bootstrap-username {{ keystone_admin_user_name }} \
+     --bootstrap-password {{ keystone_admin_password }} \
+     --bootstrap-project-name {{ keystone_admin_tenant_name }} \
+     --bootstrap-role-name {{ keystone_role_name }} \
+     --bootstrap-service-name {{ keystone_service_name }} \
+     --bootstrap-region-id {{ keystone_service_region }} \
+     --bootstrap-admin-url {{ keystone_service_adminuri }} \
+     --bootstrap-public-url {{ keystone_service_publicuri }} \
+     --bootstrap-internal-url {{ keystone_service_internaluri }}
+  no_log: true
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  changed_when: false
+  register: add_service
+  until: add_service is success
+  retries: 5
+  delay: 10
+
+- name: Update the service
+  block:
+    - name: Add service project
+      os_project:
+        cloud: default
+        state: present
+        name: "{{ keystone_service_tenant_name }}"
+        description: "{{ keystone_service_description }}"
+        domain_id: "default"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add default role
+      os_keystone_role:
+        cloud: default
+        state: present
+        name: "{{ keystone_default_role_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add service to the keystone service catalog
+      os_keystone_service:
+        cloud: default
+        state: present
+        name: "{{ keystone_service_name }}"
+        service_type: "{{ keystone_service_type }}"
+        description: "{{ keystone_service_description }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add service user
+      os_user:
+        cloud: default
+        state: present
+        name: "{{ keystone_service_user_name }}"
+        password: "{{ keystone_service_password }}"
+        domain: default
+        default_project: "{{ keystone_service_tenant_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+
+    - name: Add service user to admin role
+      os_user_role:
+        cloud: default
+        state: present
+        user: "{{ keystone_service_user_name }}"
+        role: "{{ keystone_role_name }}"
+        project: "{{ keystone_service_tenant_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add endpoints to keystone endpoint catalog
+      os_keystone_endpoint:
+        cloud: default
+        state: present
+        service: "{{ keystone_service_name }}"
+        endpoint_interface: "{{ item.interface }}"
+        url: "{{ item.url }}"
+        region: "{{ keystone_service_region }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      with_items:
+        - interface: "public"
+          url: "{{ keystone_service_publicuri }}"
+        - interface: "internal"
+          url: "{{ keystone_service_internaluri }}"
+        - interface: "admin"
+          url: "{{ keystone_service_adminuri }}"

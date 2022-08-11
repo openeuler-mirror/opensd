@@ -1,0 +1,83 @@
+---
+- name: Create DB for service
+  mysql_db:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ neutron_database_name }}"
+    state: "present"
+  delegate_to: "{{ neutron_db_setup_host }}"
+  no_log: True
+
+- name: Grant access to the DB for the service
+  mysql_user:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ database_address }}"
+    name: "{{ neutron_mysql_user }}"
+    password: "{{ neutron_mysql_password }}"
+    host: "{{ item }}"
+    state: "present"
+    priv: "{{ neutron_database_name }}.*:ALL"
+  delegate_to: "{{ neutron_db_setup_host }}"
+  with_items:
+    - "localhost"
+    - "%"
+  no_log: True
+
+- name: Perform a DB expand
+  command: "{{ neutron_bin }}/neutron-db-manage upgrade --expand"
+  become: yes
+  become_user: "{{ neutron_system_user_name }}"
+  when:
+    - "ansible_local['openstack_ansible']['neutron']['need_db_expand'] | bool"
+
+- name: Disable the db expand fact
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: neutron
+    option: "need_db_expand"
+    value: "False"
+
+- name: Perform a Lbaasv2 DB upgrade
+  command: "{{ neutron_bin }}/neutron-db-manage --subproject neutron-lbaas upgrade head"
+  become: yes
+  become_user: "{{ neutron_system_user_name }}"
+  when:
+    - "ansible_local['openstack_ansible']['neutron']['need_db_lbaas_upgrade'] | bool"
+
+- name: Disable the Lbaasv2 DB upgrade
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: neutron
+    option: "need_db_lbaas_upgrade"
+    value: "False"
+
+- name: Check for available offline migrations
+  command: "{{ neutron_bin }}/neutron-db-manage has_offline_migrations"
+  become: yes
+  become_user: "{{ neutron_system_user_name }}"
+  changed_when: false
+  register: _offline_migrations_check
+  until: _offline_migrations_check is success
+  retries: 5
+  delay: 5
+  failed_when:
+    - "_offline_migrations_check.rc == 1"
+    - "'Need to apply migrations' not in _offline_migrations_check.stdout"
+
+- name: Set the fact for the required offline migrations
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: neutron
+    option: "need_db_contract"
+    value: "True"
+  when:
+    - "'stdout' in _offline_migrations_check"
+    - "'Need to apply migrations' in _offline_migrations_check.stdout"
+  notify: Restart neutron services
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"

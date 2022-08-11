@@ -1,0 +1,6 @@
+---
+- name: Restart nova-api services
+  systemd:
+    name: "openstack-nova-api"
+    state: "restarted"
+    enabled: yes

@@ -1,0 +1,135 @@
+---
+- name: Install pcs cluster
+  gather_facts: false
+  hosts:
+    - nova-conductor
+  roles:
+    - { role: pacemaker,
+        vip_address: "{{ cell_vip_address }}",
+        pcs_cluster_group_name: "{{ nova_cell_conductor_group }}",
+        when: (enable_cells | bool) and (enable_pacemaker | bool) }
+
+- name: Install mariadb service
+  gather_facts: false
+  hosts:
+    - nova-conductor
+  roles:
+    - { role: mariadb,
+        galera_group_name: "{{ nova_cell_conductor_group }}",
+        when: enable_cells | bool }
+
+- name: Install rabbitmq
+  gather_facts: false
+  hosts:
+    - nova-conductor
+  roles:
+    - { role: rabbitmq,
+        rabbitmq_host_group: "{{ nova_cell_conductor_group }}",
+        rabbitmq_cookie_token: "{{ nova_cell_rabbitmq_cookie_token }}",
+        when: enable_cells | bool }
+
+- name: Run nova pre install
+  gather_facts: false
+  hosts:
+    - nova-api
+  tasks:
+    - name: Bootstrap deploy
+      include_role:
+        name: nova
+        tasks_from: nova_pre_install.yml
+      when:
+        - enable_nova | bool
+        - opensd_action in ['deploy']
+
+- name: Run nova cell pre install
+  gather_facts: false
+  hosts:
+    - nova-conductor
+    - nova-compute
+  tasks:
+    - name: Bootstrap deploy
+      include_role:
+        name: nova_cell
+        tasks_from: nova_cell_pre_install.yml
+      when:
+        - enable_nova | bool
+        - opensd_action in ['deploy']
+
+- name: Apply role nova
+  gather_facts: false
+  hosts:
+    - nova-api
+    - nova-super-conductor
+    - nova-scheduler
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: nova,
+        tags: nova }
+
+- name: Apply role nova_cell
+  gather_facts: false
+  hosts:
+    - nova-conductor
+    - nova-compute
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: nova_cell,
+        tags: nova_cell }
+
+- name: Reload nova-api service
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: reload_nova_api
+      when:
+        - opensd_action in ['deploy']
+
+- name: Reload nova-scheduler service
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: reload_nova_scheduler
+      when:
+        - opensd_action in ['deploy']
+
+- name: Check whether all nova-compute nodes are found
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: nova_compute_wait
+      run_once: true
+      when:
+        - opensd_action in ['deploy']
+
+- name: Run nova upgrade check
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: nova_db_post_setup
+      run_once: true
+      when:
+        - opensd_action in ['deploy']
+
+- name: Set nova aggregate groups
+  gather_facts: false
+  hosts: nova-super-conductor
+  serial: '{{ opensd_serial|default("0") }}'
+  tasks:
+    - import_role:
+        name: nova
+        tasks_from: nova_aggregate_setup
+      run_once: true
+      when:
+        - opensd_action in ['deploy']

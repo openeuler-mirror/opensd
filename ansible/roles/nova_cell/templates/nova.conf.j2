@@ -1,0 +1,337 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+# Logs / State
+debug = {{ debug }}
+fatal_deprecations = {{ nova_fatal_deprecations }}
+log_dir = {{ nova_log_dir }}
+rootwrap_config = /etc/nova/rootwrap.conf
+service_down_time = 120
+
+# vm monitor
+enable_vm_monitor = {{ nova_enable_vm_monitor }}
+monitor_is_fatal = {{ monitor_is_fatal }}
+monitor_auto_disable_service = {{ monitor_auto_disable_service }}
+monitor_check_interval = {{ monitor_check_interval }}
+
+
+# Scheduler
+disk_allocation_ratio = {{ nova_disk_allocation_ratio }}
+ram_allocation_ratio = {{ nova_ram_allocation_ratio }}
+
+{% if enable_ironic | bool and nova_virt_type == 'ironic' %}
+cpu_allocation_ratio = 1.0
+reserved_host_memory_mb = 0
+{% else %}
+cpu_allocation_ratio = {{ nova_cpu_allocation_ratio }}
+reserved_host_disk_mb = {{ nova_reserved_host_disk_mb }}
+reserved_host_memory_mb = {{ nova_reserved_host_memory_mb }}
+vcpu_pin_set = {{ vcpu_pin_set }}
+{% endif %}
+
+# Compute
+compute_driver = {{ nova_compute_driver }}
+instance_name_template = instance-%08x
+allow_resize_to_same_host = True
+image_cache_manager_interval = {{ nova_image_cache_manager_interval }}
+resume_guests_state_on_host_boot = {{ nova_resume_guests_state_on_host_boot }}
+
+# Ironic Multi AZ
+{% if enable_ironic | bool and nova_virt_type == 'ironic' %}
+state_path = {{ nova_system_home_folder }}-{{ ironic_availability_zone }}
+instances_path = {{ nova_system_home_folder }}-{{ ironic_availability_zone }}/instances
+host = {{ ansible_fqdn }}-{{ ironic_availability_zone }}
+{% else %}
+state_path = {{ nova_system_home_folder }}
+instances_path = {{ nova_system_home_folder }}/instances
+host = {{ ansible_fqdn }}
+{% endif %}
+
+# Api's
+enabled_apis = {{ nova_enabled_apis }}
+osapi_compute_workers = {{ nova_osapi_compute_workers | default(nova_api_threads) }}
+osapi_compute_listen = {{ nova_management_address }}
+
+# Rpc all
+transport_url = "rabbit://{% for host in groups[nova_cell_conductor_group] %}{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_port }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+executor_thread_pool_size = {{ nova_rpc_thread_pool_size }}
+rpc_response_timeout = {{ nova_rpc_response_timeout }}
+rpc_cast_timeout = {{ nova_rpc_cast_timeout }}
+
+# Metadata
+metadata_listen = {{ nova_management_address }}
+metadata_listen_port = {{ nova_metadata_port }}
+metadata_workers = {{ nova_metadata_workers | default(nova_api_threads) }}
+
+# Network
+my_ip = {{ nova_management_address }}
+
+## Vif
+{% if nova_virt_type in ['kvm', 'lxd', 'qemu', 'xen'] %}
+libvirt_vif_type = ethernet
+{% endif %}
+
+# Hypervisor
+default_ephemeral_format = ext4
+
+# Configdrive
+force_config_drive = {{ nova_force_config_drive }}
+
+# Driver
+{% if enable_ironic | bool and nova_virt_type == 'ironic' %}
+
+[ironic]
+api_endpoint = {{ ironic_service_internalurl }}
+auth_type = {{ ironic_keystone_auth_type }}
+auth_url = {{ keystone_auth_url }}
+project_name = {{ ironic_service_project_name }}
+project_domain_name = {{ ironic_service_project_domain_id }}
+username = {{ ironic_service_name }}
+user_domain_name = {{ ironic_service_user_domain_id }}
+password = {{ ironic_service_password }}
+region_name = {{ ironic_service_region }}
+# Multi AZ config
+partition_key = {{ ironic_availability_zone_full_name }}
+peer_list = {% for host in groups[nova_services['ironic-nova-compute']['group']] %}{{ hostvars[host]['ansible_fqdn'] }}-{{ ironic_availability_zone }}{% if not loop.last %},{% endif %}{% endfor %}
+
+# Support GPU ironic types
+enabled_gpu_types = {{ enabled_gpu_types }}
+{% endif %}
+
+# Notifications
+[oslo_messaging_notifications]
+driver = messagingv2
+transport_url = "rabbit://{% for host in groups[nova_cell_conductor_group] %}{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_port }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+[notifications]
+notify_on_state_change = {{ nova_notify_on_state_change }}
+default_level = {{ nova_notification_default_level }}
+notification_format = {{ nova_notification_format }}
+
+# Cache
+[cache]
+enabled = true
+backend = oslo_cache.memcache_pool
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+# Cinder
+[cinder]
+catalog_info = volumev3:cinderv3:internalURL
+cross_az_attach = {{ nova_cross_az_attach }}
+os_region_name = {{ nova_service_region }}
+
+[vnc]
+enabled = {{ nova_novncproxy_agent_enabled }}
+novncproxy_host = {{ api_interface_address }}
+novncproxy_port = {{ nova_novncproxy_port }}
+server_listen = {{ nova_novncproxy_vncserver_listen }}
+server_proxyclient_address = {{ nova_novncproxy_vncserver_proxyclient_address }}
+{% if nova_services['nova-compute']['group'] in group_names or nova_services['ironic-nova-compute']['group'] in group_names %}
+novncproxy_base_url = {{ nova_novncproxy_base_url }}
+{% endif %}
+auth_schemes = {{ vnc_auth_schemes }}
+
+# Glance
+[glance]
+api_servers = {{ nova_glance_api_servers }}
+
+# Neutron
+[neutron]
+{% if not enable_cells | bool %}
+metadata_proxy_shared_secret = {{ nova_metadata_proxy_secret }}
+service_metadata_proxy = {{ nova_metadata_proxy_enabled }}
+{% endif %}
+region_name = {{ keystone_service_region }}
+auth_type = password
+default_floating_pool = public
+# Keystone client plugin password option
+password = {{ nova_service_password }}
+# Keystone client plugin username option
+username = {{ nova_service_user_name }}
+project_name = {{ nova_service_project_name }}
+user_domain_name = {{ nova_service_domain_name |default("Default") }}
+project_domain_name = {{ nova_service_domain_name |default("Default") }}
+# Keystone client plugin authentication URL option
+auth_url = {{ keystone_auth_url }}
+{% if nova_network_services[nova_network_type]['ovs_bridge'] is defined %}
+ovs_bridge = {{ nova_network_services[nova_network_type]['ovs_bridge'] }}
+{% endif %}
+
+{% if nova_placement_service_enabled | bool %}
+# Placement
+[placement]
+region_name = {{ nova_placement_service_region }}
+valid_interfaces = {{ nova_placement_service_interface }}
+auth_type = "password"
+password = {{ nova_placement_service_password }}
+username = {{ nova_placement_service_username }}
+project_name = {{ nova_placement_service_project_name }}
+user_domain_name = {{ nova_placement_service_user_domain_id }}
+project_domain_name = {{ nova_placement_service_project_domain_id }}
+auth_url = {{ keystone_auth_url }}
+{% endif %}
+
+[conductor]
+workers = {{ nova_conductor_workers | default(nova_api_threads) }}
+
+[keystone_authtoken]
+auth_type = {{ nova_keystone_auth_plugin }}
+auth_url = {{ keystone_auth_url }}
+www_authenticate_uri = {{ keystone_auth_url }}
+project_domain_id = {{ nova_service_project_domain_id }}
+user_domain_id = {{ nova_service_user_domain_id }}
+project_name = {{ nova_service_project_name }}
+username = {{ nova_service_user_name }}
+password = {{ nova_service_password }}
+region_name = {{ keystone_service_region }}
+
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+token_cache_time = 300
+
+{% if group_names | intersect(nova_services.keys() | difference(['nova-compute','ironic-nova-compute']) | map('extract', nova_services, 'group') | list) | count > 0 %}
+[database]
+connection = mysql+pymysql://{{ nova_cell_mysql_name }}:{{ nova_cell_mysql_password }}@{{ cell_vip_address }}/{{ nova_cell_database_name }}?charset=utf8
+
+min_pool_size = {{ nova_db_min_pool_size }}
+max_pool_size = {{ nova_db_max_pool_size }}
+pool_timeout = {{ nova_db_pool_timeout }}
+max_retries = {{ nova_db_max_retries }}
+max_overflow = {{ nova_db_max_overflow }}
+db_retry_interval = {{ nova_db_retry_interval }}
+db_inc_retry_interval = {{ nova_db_inc_retry_interval }}
+db_max_retry_interval = {{ nova_db_max_retry_interval }}
+db_max_retries = {{ nova_db_max_retries }}
+
+[api_database]
+connection = mysql+pymysql://{{ nova_api_mysql_user }}:{{ nova_api_mysql_password }}@{{ database_address }}/{{ nova_api_database_name }}?charset=utf8
+min_pool_size = {{ nova_api_db_min_pool_size }}
+max_pool_size = {{ nova_api_db_max_pool_size }}
+pool_timeout = {{ nova_api_db_pool_timeout }}
+max_retries = {{ nova_api_db_max_retries }}
+max_overflow = {{ nova_api_db_max_overflow }}
+db_retry_interval = {{ nova_api_db_retry_interval }}
+db_inc_retry_interval = {{ nova_api_db_inc_retry_interval }}
+db_max_retry_interval = {{ nova_api_db_max_retry_interval }}
+db_max_retries = {{ nova_api_db_max_retries }}
+
+{% endif %}
+
+[oslo_concurrency]
+lock_path = {{ nova_lock_path }}
+
+
+[oslo_messaging_rabbit]
+rpc_conn_pool_size = {{ nova_rpc_conn_pool_size }}
+amqp_durable_queues = {{ nova_amqp_durable_queues }}
+rabbit_ha_queues = {{ nova_rabbit_ha_queues }}
+
+{% if nova_virt_type in ['kvm', 'qemu', 'xen'] %}
+[libvirt]
+monitor_device_type = {{ nova_monitor_device_type }}
+telegraf_port = {{ nova_telegraf_port }}
+inject_partition = {{ nova_libvirt_inject_partition }}
+inject_password = {{ nova_libvirt_inject_password }}
+inject_key = {{ nova_libvirt_inject_key }}
+use_virtio_for_bridges = True
+virt_type = {{ nova_virt_type }}
+remove_unused_resized_minimum_age_seconds = {{ nova_remove_unused_resized_minimum_age_seconds }}
+{% if nova_cpu_mode is defined %}
+cpu_mode = {{ nova_cpu_mode }}
+{% if nova_cpu_mode == 'custom' %}
+cpu_model = {{ nova_cpu_model }}
+{% endif %}
+{% if nova_cpu_model_extra_flags is defined %}
+cpu_model_extra_flags = {{ nova_cpu_model_extra_flags | join(',') }}
+{% endif %}
+{% endif %}
+
+{% if nova_libvirt_images_rbd_pool is defined %}
+# ceph rbd support
+rbd_user = {{ nova_ceph_rbd_user }}
+rbd_secret_uuid = {{ nova_ceph_client_uuid }}
+images_type = rbd
+images_rbd_pool = {{ nova_libvirt_images_rbd_pool }}
+images_rbd_ceph_conf = /etc/ceph/ceph.conf
+{% endif %}
+live_migration_uri = "qemu+ssh://nova@%s/system?no_verify=1&keyfile={{ nova_system_home_folder }}/.ssh/id_rsa"
+live_migration_tunnelled = false
+live_migration_permit_post_copy = true
+hw_disk_discard = {{ nova_libvirt_hw_disk_discard }}
+disk_cachemodes = {{ nova_libvirt_disk_cachemodes }}
+{% if ansible_architecture == 'aarch64' %}
+num_pcie_ports=28
+{% endif %}
+{% endif %}
+
+[wsgi]
+api_paste_config = /etc/nova/api-paste.ini
+
+[api]
+auth_strategy = keystone
+enable_instance_password = {{ nova_enable_instance_password }}
+use_forwarded_for = {{ nova_network_services[nova_network_type]['use_forwarded_for'] | bool }}
+
+[scheduler]
+workers = {{ nova_scheduler_workers | default(nova_api_threads) }}
+max_attempts = {{ nova_scheduler_max_attempts }}
+scheduler_driver = {{ nova_scheduler_driver }}
+periodic_task_interval = {{ nova_scheduler_driver_task_period }}
+discover_hosts_in_cells_interval = {{ nova_discover_hosts_in_cells_interval }}
+
+[filter_scheduler]
+max_instances_per_host = {{ nova_max_instances_per_host }}
+max_io_ops_per_host = {{ nova_max_io_ops_per_host }}
+ram_weight_multiplier = {{ nova_ram_weight_multiplier }}
+available_filters = {{ nova_scheduler_available_filters }}
+enabled_filters = {{ nova_scheduler_default_filters }}
+host_subset_size = {{ nova_scheduler_host_subset_size }}
+weight_classes = {{ nova_scheduler_weight_classes }}
+tracks_instance_changes = {{ nova_scheduler_tracks_instance_changes }}
+
+[quota]
+cores = {{ nova_quota_cores }}
+injected_file_content_bytes = {{ nova_quota_injected_file_content_bytes }}
+injected_file_path_length = {{ nova_quota_injected_file_path_length }}
+injected_files = {{ nova_quota_injected_files }}
+instances = {{ nova_quota_instances }}
+key_pairs = {{ nova_quota_key_pairs }}
+max_age = {{ nova_max_age }}
+metadata_items = {{ nova_quota_metadata_items }}
+ram = {{ nova_quota_ram }}
+server_group_members = {{ nova_quota_server_group_members }}
+server_groups = {{ nova_quota_server_groups }}
+
+[upgrade_levels]
+compute=auto
+
+{% if gpu_server_type is defined and gpu_server_type == 'vgpu' %}
+[devices]
+enabled_vgpu_types = {{ hostvars[inventory_hostname]['ansible_local']['openstack_ansible']['nova']['enabled_vgpu_types'] }}
+{% for item in hostvars[inventory_hostname]['ansible_local']['openstack_ansible']['nova'] %}
+{% if 'vgpu_nvidia' in item %}
+[{{ item }}]
+device_addresses = {{ hostvars[inventory_hostname]['ansible_local']['openstack_ansible']['nova'][item] }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if gpu_server_type is defined and gpu_server_type == 'pass_through' %}
+[pci]
+{% set item = hostvars[inventory_hostname]['ansible_local']['openstack_ansible']['nova'] %}
+passthrough_whitelist = [{"vendor_id": "{{ item.vendor_id }}", "product_id": "{{ item.product_id }}", "device_type": "{{ item.device_type }}", "name": "{{ item.name }}", "gpu_filter":"True"}]
+alias = {"vendor_id": "{{ item.vendor_id }}", "product_id": "{{ item.product_id }}", "device_type": "{{ item.device_type }}", "name": "{{ item.name }}"}
+{% endif %}
+
+{% if group_names | intersect(nova_services.keys() | difference('nova-compute') | map('extract', nova_services, 'group') | list) | count > 0 and pass_through_servers[0] is defined %}
+[pci]
+passthrough_whitelist = [{% for host in pass_through_servers %}{% set item = hostvars[host]['ansible_local']['openstack_ansible']['nova'] %}{"vendor_id": "{{ item.vendor_id }}", "product_id": "{{ item.product_id }}", "device_type": "{{ item.device_type }}", "name": "{{ item.name }}", "gpu_filter":"True"}{% if not loop.last %},{% endif %}{% endfor %}]
+{% for host in pass_through_servers %}
+{% set item = hostvars[host]['ansible_local']['openstack_ansible']['nova'] %}
+alias = {"vendor_id": "{{ item.vendor_id }}", "product_id": "{{ item.product_id }}", "device_type": "{{ item.device_type }}", "name": "{{ item.name }}"}
+{% endfor %}
+{% endif %}
+

@@ -1,0 +1,91 @@
+---
+- name: Create the ironic system group
+  group:
+    name: "{{ ironic_system_group_name }}"
+    state: "present"
+    gid: "42422"
+    system: "yes"
+
+- name: Create the ironic-inspector system group
+  group:
+    name: "{{ ironic_inspector_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the ironic system user
+  user:
+    name: "{{ ironic_system_user_name }}"
+    group: "{{ ironic_system_group_name }}"
+    comment: "{{ ironic_system_comment }}"
+    shell: "{{ ironic_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    uid: "42422"
+    home: "{{ ironic_system_home_folder }}"
+
+- name: Create the ironic-inspector system user
+  user:
+    name: "{{ ironic_inspector_system_user_name }}"
+    group: "{{ ironic_inspector_system_group_name }}"
+    comment: "{{ ironic_inspector_system_comment }}"
+    shell: "{{ ironic_inspector_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ ironic_inspector_system_home_folder }}"
+
+- name: Create ironic dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(ironic_system_user_name) }}"
+    group: "{{ item.group|default(ironic_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "/etc/ironic" }
+    - { path: "/etc/ironic/rootwrap.d" }
+    - { path: "{{ ironic_system_home_folder }}" }
+    - { path: "{{ ironic_system_home_folder }}/images" }
+    - { path: "{{ ironic_system_home_folder }}/master_images" }
+    - { path: "{{ ironic_system_home_folder }}/httproot" }
+
+- name: Create ironic-inspector dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(ironic_inspector_system_user_name) }}"
+    group: "{{ item.group|default(ironic_inspector_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "/etc/ironic-inspector" }
+    - { path: "/etc/ironic-inspector/rootwrap.d" }
+    - { path: "{{ ironic_inspector_system_home_folder }}" }
+    - { path: "{{ ironic_inspector_system_home_folder }}/images" }
+    - { path: "{{ ironic_inspector_system_home_folder }}/master_images" }
+
+- name: Create tftpboot dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(ironic_system_user_name) }}"
+    group: "{{ item.group|default(ironic_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "/tftpboot" }
+
+- name: Config ceph FS
+  include_tasks: config_cephfs.yml
+  when:
+    - inventory_hostname in groups['baremetal']
+    - groups['ironic-inspector-dnsmasq']|count() > 1
+
+- name: Ensure pxelinux default dirs
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(ironic_system_user_name) }}"
+    group: "{{ item.group|default(ironic_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "/tftpboot" }
+    - { path: "/tftpboot/pxelinux.cfg" }
+

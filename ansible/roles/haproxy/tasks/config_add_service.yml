@@ -1,0 +1,13 @@
+---
+- name: Set haproxy conf for {{ service_name }}
+  blockinfile:
+    dest: /etc/haproxy/haproxy.cfg
+    marker: "# {mark} ANSIBLE GENERATED {{ service_name }}"
+    block: |
+        listen {{ service_name }}
+          bind {{ opensd_vip_address }}:{{ haproxy_port }}
+        {% for host in service_group %}
+          server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ service_port }} check inter 2000 rise 2 fall 5
+        {% endfor %}
+  become: True
+  notify: Restart haproxy service

@@ -1,0 +1,498 @@
+---
+###
+### Verbosity Options
+###
+
+debug: "{{ openstack_logging_debug }}"
+neutron_bin: "/usr/bin"
+neutron_management_address: "{{ api_interface_address }}"
+dhcp_agents_max: 2
+
+###
+### Neutron system options
+###
+neutron_conf_dir: /etc/neutron
+neutron_lock_path: "/var/lib/neutron/tmp"
+neutron_system_user_name: neutron
+neutron_system_group_name: neutron
+neutron_system_comment: neutron system user
+neutron_system_shell: /bin/false
+neutron_system_home_folder: "/var/lib/{{ neutron_system_user_name }}"
+
+###
+### Service setup options
+###
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+neutron_setup_host: "{{ groups['neutron-server'][0] }}"
+
+###
+### Python code details
+###
+
+neutron_log_dir: "/var/log/neutron"
+
+###
+### Generic Neutron Config
+###
+
+# Fatal Deprecations
+neutron_fatal_deprecations: False
+
+# If ``neutron_api_workers`` is unset the system will use half the number of available VCPUs to
+# compute the number of api workers to use with a default capping value of 16.
+# neutron_api_workers: 16
+
+## Cap the maximun number of threads / workers when a user value is unspecified.
+neutron_api_threads_max: 16
+neutron_api_threads: "{{ [[ansible_processor_vcpus|default(2) // 2, 1] | max, neutron_api_threads_max] | min }}"
+
+neutron_agent_down_time: 120
+neutron_agent_polling_interval: 5
+neutron_report_interval: "{{ neutron_agent_down_time | int / 2 | int }}"
+
+neutron_dns_domain: "openstacklocal."
+
+# If ``neutron_num_sync_threads`` is unset, the system will use the value of
+# neutron_api_threads in templates/dhcp_agent.ini.j2 for num_sync_threads.
+# neutron_num_sync_threads: 4
+
+###
+### Quotas
+###
+
+neutron_default_quota: -1
+neutron_quota_floatingip: -1
+neutron_quota_health_monitor: -1
+neutron_quota_member: -1
+neutron_quota_network: -1
+neutron_quota_network_gateway: -1
+neutron_quota_packet_filter: -1
+neutron_quota_pool: -1
+neutron_quota_port: -1
+neutron_quota_router: -1
+neutron_quota_security_group: -1
+neutron_quota_security_group_rule: -1
+neutron_quota_subnet: -1
+neutron_quota_vip: -1
+neutron_quota_loadbalancer: -1
+
+###
+### DB (Galera) integration
+###
+
+neutron_db_setup_host: "{{ ('mariadb' in groups) | ternary(groups['mariadb'][0], 'localhost') }}"
+neutron_mysql_user: neutron
+neutron_database_name: neutron
+neutron_db_max_overflow: 200
+neutron_db_max_pool_size: 500
+neutron_db_pool_timeout: 30
+neutron_db_min_pool_size: 100
+neutron_db_max_retries: 5
+neutron_db_retry_interval: 2
+neutron_db_inc_retry_interval: true
+neutron_db_max_retry_interval: 2
+
+###
+### (RabbitMQ) integration
+###
+
+neutron_rpc_thread_pool_size: 64
+neutron_rpc_conn_pool_size: 60
+neutron_rpc_response_timeout: 120
+neutron_rpc_workers: 16
+
+###
+### Identity (Keystone) integration
+###
+
+neutron_service_project_name: service
+neutron_service_project_domain_id: default
+neutron_service_user_domain_id: default
+neutron_service_role_name: admin
+neutron_service_user_name: neutron
+neutron_service_name: neutron
+neutron_service_type: network
+neutron_service_description: "OpenStack Networking"
+neutron_server_port: 9696
+neutron_service_region: RegionOne
+neutron_keystone_auth_plugin: "{{ neutron_keystone_auth_type }}"
+neutron_keystone_auth_type: password
+neutron_service_publicurl: "http://{{ opensd_vip_address }}:{{ neutron_server_port }}"
+neutron_service_internalurl: "http://{{ opensd_vip_address }}:{{ neutron_server_port }}"
+neutron_service_adminurl: "http://{{ opensd_vip_address }}:{{ neutron_server_port }}"
+
+###
+### Plugins Loading
+###
+
+# Other plugins can be added to the system by simply extending the list `neutron_plugin_base`.
+# neutron_plugin_base:
+#   - router
+#   - firewall/firewall_v2 either one or the other, not both
+#   - lbaas
+#   - neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2
+#   - neutron_dynamic_routing.services.bgp.bgp_plugin.BgpPlugin
+#   - vpnaas
+#   - metering
+#   - qos
+#   - dns
+#   - port_forwarding
+
+neutron_plugin_base:
+  - "{{ 'terra_pf' if enable_vxlan_network_type else 'port_forwarding' }}"
+  - "{% if enable_neutron_fwaas %}firewall{% endif %}"
+  - qos
+  - router
+  - lbaasv2
+  - neutron.services.metering.metering_plugin.MeteringPlugin
+
+###
+### ML2 Plugin Configuration
+###
+
+# The neutron core plugin (ML2) is defined with neutron_plugin_type,
+# you can not load multiple ML2 plugins as core.
+neutron_plugin_type: 'ml2.ovs'
+
+# Additional ML2 plugins can be loaded with neutron_plugin_types (as list)
+neutron_plugin_types: "{{ (enable_ironic | bool) | ternary(['ml2.genericswitch'], []) }}"
+
+# ml2 network type drivers to load
+neutron_ml2_drivers_type: "flat,vxlan,vlan"
+
+# Enable or disable L2 Population.
+neutron_l2_population: "False"
+
+## The neutron multicast group address. This should be set as a host variable if used.
+neutron_vxlan_group:
+
+# neutron_local_ip is used for the VXLAN local tunnel endpoint
+neutron_local_ip: 127.0.0.1
+
+## Set this variable to configure the provider networks that will be available
+## When setting up networking in things like the ml2_conf.ini file. Normally
+## this will be defined as a host variable used within neutron as network configuration
+## are likely to differ in between hosts.
+# neutron_provider_networks:
+#   network_flat_networks: "flat"
+#   network_mappings: "flat:eth12,vlan:eth11"
+#   network_types: "vxlan,flat,vlan"
+#   network_vlan_ranges: "vlan:1:1,vlan:1024:1025"
+#   network_vxlan_ranges: "1:1000"
+#   network_sriov_mappings: "vlan:p4p1"
+neutron_provider_networks:
+  network_types: "{{ 'vxlan' if enable_vxlan_network_type else 'vlan' }}"
+  network_vlan_ranges: "default:102:199"
+  network_mappings: "default:br-provider"
+  network_interface: "{{ neutron_external_interface }}"
+  network_vxlan_ranges: "1:1000"
+
+l3_distributed_port_binding: "{{ 'True' if enable_vxlan_network_type else 'False' }}"
+
+###
+### L3 Agent Plugin Configuration
+###
+
+# Set this option to "true" to enable legacy neutron L3HA tool support
+# This tool is useful to ensure any non-HA neutron entities
+# are re-scheduled if the agent managing them goes down.
+# It is also useful if the built-in HA capabilities cannot
+# be used in the environment for whatever reason.
+neutron_legacy_ha_tool_enabled: false
+
+# L3HA configuration options
+neutron_ha_vrrp_auth_type: PASS
+neutron_l3_ha_net_cidr:
+max_l3_router: 2
+
+###
+### DHCP Agent Plugin Configuration
+###
+
+# Specify if dnsmasq should send a route to metadata server through DHCP 121 message to VM
+neutron_dnsmasq_force_metadata: True
+
+###
+### Metadata Agent Plugin Configuration
+###
+
+neutron_ovs_service_name: openvswitch
+
+###
+### Metadata Agent Plugin Configuration
+###
+
+# If ``neutron_metadata_workers`` is unset the system will use half the number of available VCPUs to
+# compute the number of api workers to use with a default capping value of 16.
+# neutron_metadata_workers: 16
+neutron_metadata_backlog: 4096
+
+# The protocol used by neutron to access the nova metadata service.
+nova_metadata_protocol: http
+
+# If the nova_metadata_protocol is using a self-signed cert, then
+# this flag should be set to a boolean True.
+nova_metadata_insecure: False
+
+nova_metadata_port: 8775
+
+
+###
+### Service Options
+###
+neutron_services:
+  neutron-dhcp-agent:
+    group: neutron-dhcp-agent
+    service_name: neutron-dhcp-agent
+    service_conf_path: "{{ neutron_conf_dir }}"
+    service_conf: dhcp_agent.ini
+    start_order: 3
+  neutron-openvswitch-agent:
+    group: neutron-openvswitch-agent
+    service_name: neutron-openvswitch-agent
+    service_conf_path: "{{ neutron_conf_dir }}"
+    service_conf: plugins/ml2/openvswitch_agent.ini
+    start_order: 2
+  neutron-l3-agent:
+    group: neutron-l3-agent
+    service_name: neutron-l3-agent
+    service_conf_path: "{{ neutron_conf_dir }}"
+    service_conf: l3_agent.ini
+    start_order: 3
+  neutron-lbaasv2-agent:
+    group: neutron-lbaasv2-agent
+    service_name: neutron-lbaasv2-agent
+    service_conf_path: "{{ neutron_conf_dir }}"
+    service_conf: lbaas_agent.ini
+    start_order: 3
+  neutron-metering-agent:
+    group: neutron-metering-agent
+    service_name: neutron-metering-agent
+    service_conf_path: "{{ neutron_conf_dir }}"
+    service_conf: metering_agent.ini
+    start_order: 3
+  neutron-metadata-agent:
+    group: neutron-metadata-agent
+    service_name: neutron-metadata-agent
+    service_conf_path: "{{ neutron_conf_dir }}"
+    service_conf: metadata_agent.ini
+    start_order: 3
+  neutron-server:
+    group: neutron-server
+    service_name: neutron-server
+    start_order: 1
+
+filtered_neutron_services: |-
+  {% set services = [] %}
+  {% for key, value in neutron_services.items() %}
+  {%   if (value['group'] in group_names) %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+###
+### Packages Options
+###
+neutron_needs_openvswitch: true
+neutron_ovs_distro_packages:
+  - openvswitch
+neutron_distro_packages:
+  - openstack-neutron
+  - conntrack-tools
+  - dnsmasq
+  - dnsmasq-utils
+  - ebtables
+  - ipset
+  - iptables
+  - iputils
+  - keepalived
+  - net-tools
+  - python-keystoneclient
+  - radvd
+  - which
+neutron_service_distro_packages:
+  - python-keystonemiddleware
+  - openstack-neutron-ml2
+  - python-glanceclient
+  - python-memcached
+  - python-neutronclient
+  - python-novaclient
+  - python-neutron-fwaas
+neutron_optional_ovs_distro_packages:
+  - openstack-neutron-openvswitch
+
+neutron_optional_lbaas_distro_packages:
+  - openstack-neutron-lbaas
+  - nginx
+  - ipvs
+  - ipvs-fnat
+  - ipvsadm
+
+neutron_optional_metering_distro_packages:
+  - openstack-neutron-metering-agent
+  - python2-pykafka
+  - librdkafka
+  - python2-tabulate
+  - fping
+neutron_optional_ngs_distro_packages:
+  - python2-networking-generic-switch
+
+neutron_metadata_agent_distro_packages:
+  - haproxy
+
+neutron_sdn_or_firwalld_distro_packages:
+  - python-certifi
+  - python-chardet
+  - python-idna
+  - python-oauthlib
+  - python-requests-oauthlib
+  - python-requests
+  - python-urllib3
+  - networking-terra
+  - openstack-neutron-fwaas
+  - python-neutron-fwaas
+
+neutron_remove_distro_packages: []
+neutron_package_list: |-
+  {% set packages = neutron_distro_packages %}
+  {% if neutron_needs_openvswitch | bool %}
+  {% if neutron_services['neutron-openvswitch-agent']['group'] in group_names %}
+  {% set _ = packages.extend(neutron_optional_ovs_distro_packages) %}
+  {% set _ = packages.extend(neutron_ovs_distro_packages) %}
+  {% endif %}
+  {% endif %}
+  {%if neutron_services['neutron-lbaasv2-agent']['group'] in group_names %}
+  {% set _ = packages.extend(neutron_optional_lbaas_distro_packages) %}
+  {% endif %}
+  {%if neutron_services['neutron-metering-agent']['group'] in group_names %}
+  {% set _ = packages.extend(neutron_optional_metering_distro_packages) %}
+  {% endif %}
+  {%if neutron_services['neutron-server']['group'] in group_names %}
+  {% set _ = packages.extend(neutron_service_distro_packages) %}
+  {% set _ = packages.extend(neutron_optional_lbaas_distro_packages) %}
+  {% endif %}
+  {% if ('ml2.genericswitch' in neutron_plugin_types) and
+         (neutron_services['neutron-server']['group'] in group_names) %}
+  {% set _ = packages.extend(neutron_optional_ngs_distro_packages) %}
+  {% endif %}
+  {% if neutron_services['neutron-metadata-agent']['group'] in group_names %}
+  {% set _ = packages.extend(neutron_metadata_agent_distro_packages) %}
+  {% endif %}
+  {% if neutron_services['neutron-l3-agent']['group'] in group_names %}
+  {% set _ = packages.extend(neutron_sdn_or_firwalld_distro_packages) %}
+  {% endif %}
+  {{ packages }}
+
+neutron_package_state: "present"
+
+###
+### Neutron plugins
+###
+neutron_plugin_core: "{{ neutron_plugins[neutron_plugin_type].plugin_core }}"
+neutron_plugins:
+  ml2.ovs:
+    driver_firewall: iptables_hybrid
+    driver_interface: openvswitch
+    drivers_type: "{{ neutron_ml2_drivers_type }}"
+    l2_population: "{{ neutron_l2_population }}"
+    mechanisms: "{{ 'terra,' if enable_sdn_controller | bool else '' }}openvswitch"
+    l3_agent_mode: "legacy"
+    plugin_core: ml2
+    plugin_ini: plugins/ml2/ml2_conf.ini
+  ml2.genericswitch:
+    drivers_type: "vlan"
+    mechanisms: "genericswitch"
+    plugin_core: ml2
+
+###
+### Internals: Drivers mappings
+###
+
+neutron_driver_network_scheduler: neutron.scheduler.dhcp_agent_scheduler.AZAwareWeightScheduler
+neutron_driver_router_scheduler: neutron.scheduler.l3_agent_scheduler.AZLeastRoutersScheduler
+neutron_driver_loadbalancer_pool_scheduler: neutron_lbaas.services.loadbalancer.agent_scheduler.ChanceScheduler
+neutron_driver_metering: neutron.services.metering.drivers.iptables.iptables_driver.IptablesMeteringDriver
+neutron_driver_dhcp: neutron.agent.linux.dhcp.Dnsmasq
+neutron_driver_quota: neutron.db.quota.driver.DbQuotaDriver
+
+###
+### ML2 Plugin Configuration
+###
+
+neutron_ml2_mechanism_drivers: >-
+  {%- set _var = [] -%}
+  {%- for plugin in [neutron_plugin_type]|union(neutron_plugin_types) -%}
+    {%- if _var.append(neutron_plugins[plugin].mechanisms) -%}{%- endif -%}
+  {%- endfor -%}
+  {%- if neutron_l2_population | bool -%}
+    {%- if _var.append('l2population') -%}{%- endif -%}
+  {%- endif -%}
+  {{ _var | join(',') }}
+
+neutron_ml2_conf_genericswitch:
+  genericswitch:arista01:
+    device_type: netmiko_arista_eos
+    ngs_mac_address:
+    ip:
+    username: 
+    password:
+    ngs_port_default_vlan: 3
+  genericswitch:arista02:
+    device_type: netmiko_arista_eos
+    ngs_mac_address:
+    ip:
+    username:
+    password:
+    ngs_port_default_vlan: 3
+
+###
+#### Metering Aget Configuration
+####
+
+enable_meter_full_eip: True
+enable_meter_port_forwarding: True
+enable_meter_ecs_ipv6: True
+enable_meter: True
+is_sdn_arch: False
+report_vm_interval: 300
+measure_interval: 10
+report_interval: 120
+report_vpc2vpc_interval: 900
+sync_router_vpc_interval: 600
+report_router_tcp_con_interval: 300
+report_router_udp_con_interval: 300
+report_router_icmp_con_interval: 300
+
+# OVS
+_neutron_non_tunnel_types:
+  - flat
+  - vlan
+  - local
+
+# Tunnel network types used by the OVS agent
+neutron_tunnel_types: "{{ neutron_ml2_drivers_type.split(',') | difference(_neutron_non_tunnel_types) | join(',') }}"
+
+###
+### L3 Agent Plugin Configuration
+###
+
+neutron_amqp_durable_queues: true
+neutron_rabbit_ha_queues: true
+neutron_port_forwarding: "{{ ('port_forwarding' in neutron_plugin_base) | ternary('True', 'False') }}"
+neutron_fip_qos: true
+
+###
+### Lbaasv2 Agent Plugin Configuration
+###
+neutron_lbaasv2: true
+compute_neutron_lbaasv2_service_provider:
+  - LOADBALANCERV2:LVS:neutron_lbaas.drivers.lvs.plugin_driver.LVSOnHostPluginDriver:default
+control_neutron_lbaasv2_service_provider:
+  - LOADBALANCERV2:LVS:neutron_lbaas.drivers.lvs.plugin_driver.LVSOnHostPluginDriver:default
+
+neutron_lbaasv2_device_driver: neutron_lbaas.drivers.lvs.namespace_driver.LVSNSDriver

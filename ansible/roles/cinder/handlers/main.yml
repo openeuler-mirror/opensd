@@ -1,0 +1,86 @@
+---
+- name: Restart cinder api and scheduler services
+  service:
+    name: "{{ item.service_name }}"
+    enabled: true
+    state: "restarted"
+  with_items: "{{ filtered_cinder_services }}"
+  register: _restart
+  until: _restart  is success
+  retries: 5
+  delay: 5
+  listen: Restart cinder services
+
+- name: Create pcs resource for cinder-volume service
+  pcs_resource:
+    name: "openstack-cinder-volume"
+    resource_class: "ocf"
+    resource_type: "systemd:openstack-cinder-volume"
+  run_once: true
+  when:
+    - cinder_services['cinder-volume']['group'] in group_names
+    - enable_pacemaker | bool
+  listen: Restart cinder services
+
+- name: Create pcs resource for cinder-backup service
+  pcs_resource:
+    name: "openstack-cinder-backup"
+    resource_class: "ocf"
+    resource_type: "systemd:openstack-cinder-backup"
+  run_once: true
+  when:
+    - cinder_services['cinder-backup']['group'] in group_names
+    - enable_pacemaker | bool
+  listen: Restart cinder services
+
+- name: Restart cinder-volume service(by pcs)
+  shell: "pcs resource restart openstack-cinder-volume"
+  register: _restart
+  until: _restart  is success
+  retries: 3
+  delay: 10
+  run_once: true
+  when:
+    - cinder_services['cinder-volume']['group'] in group_names
+    - enable_pacemaker | bool
+  listen: Restart cinder services
+
+- name: Restart cinder-backup service(by pcs)
+  shell: "pcs resource restart openstack-cinder-backup"
+  register: _restart
+  until: _restart  is success
+  retries: 3
+  delay: 10
+  run_once: true
+  when:
+    - cinder_services['cinder-backup']['group'] in group_names
+    - enable_pacemaker | bool
+  listen: Restart cinder services
+
+- name: Restart cinder-volume service(by systemd)
+  service:
+    name: "{{ cinder_services['cinder-volume']['service_name'] }}"
+    enabled: true
+    state: restarted
+  register: _restart
+  until: _restart  is success
+  retries: 3
+  delay: 10
+  when:
+    - cinder_services['cinder-volume']['group'] in group_names
+    - not enable_pacemaker | bool
+  listen: Restart cinder services
+
+- name: Restart cinder-backup service(by systemd)
+  service:
+    name: "{{ cinder_services['cinder-backup']['service_name'] }}"
+    enabled: true
+    state: restarted
+  register: _restart
+  until: _restart  is success
+  retries: 3
+  delay: 10
+  when:
+    - cinder_services['cinder-backup']['group'] in group_names
+    - not enable_pacemaker | bool
+  listen: Restart cinder services

@@ -1,0 +1,25 @@
+---
+- name: Ensure Open vSwitch service is started and enabled
+  service:
+    name: "{{ neutron_ovs_service_name }}"
+    state: started
+    enabled: yes
+
+- name: Setup External Network Provider Bridge
+  openvswitch_bridge:
+    bridge: "{{ neutron_provider_networks.network_mappings.split(':')[1] }}"
+    fail_mode: secure
+    state: present
+  when:
+    - neutron_plugin_type == 'ml2.ovs'
+    - neutron_provider_networks.network_mappings is defined
+
+- name: Add port to External Network Provider Bridge
+  openvswitch_port:
+    bridge: "{{ neutron_provider_networks.network_mappings.split(':')[1] }}"
+    port: "{{ neutron_provider_networks.network_interface }}"
+    state: present
+  when:
+    - neutron_plugin_type == 'ml2.ovs'
+    - neutron_provider_networks.network_mappings is defined
+    - neutron_provider_networks.network_interface is defined

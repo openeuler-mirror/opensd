@@ -1,0 +1,108 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+debug = {{ glance_logging_debug }}
+log_file = /var/log/glance/glance-api.log
+fatal_deprecations = {{ glance_fatal_deprecations }}
+bind_host = {{ glance_api_bind_address }}
+bind_port = {{ glance_api_service_port }}
+digest_algorithm = {{ glance_digest_algorithm }}
+backlog = 4096
+workers = {{ glance_api_workers | default(glance_api_threads) }}
+registry_host = {{ glance_registry_host }}
+registry_port = {{ glance_registry_port }}
+registry_client_protocol = http
+cinder_catalog_info = volume:cinder:internalURL
+
+enable_v2_api = {{ glance_enable_v2_api | bool }}
+enable_v2_registry = {{ glance_enable_v2_registry | bool }}
+
+{% if glance_enable_v2_registry | bool %}
+data_api = glance.db.registry.api
+{% endif %}
+
+transport_url = {{ rpc_transport_url }}
+
+delayed_delete = False
+scrub_time = 43200
+image_cache_dir = {{ glance_system_user_home }}/cache/
+
+# defaults to true if RBD is used as default store
+show_image_direct_url = {{ glance_show_image_direct_url }}
+show_multiple_locations = {{ glance_show_multiple_locations }}
+
+enabled_import_methods = [{% for method in glance_enabled_import_methods %}{{ method }}{% if not loop.last %},{% endif %}{% endfor %}]
+
+enabled_backends = {% for az in cephmon_compose_azs %}ceph_{{ az | replace(".", "_") }}:rbd{% if not loop.last %},{% endif %}{% endfor %}
+
+node_staging_uri = file:///var/lib/glance/os_glance_staging_store
+
+[glance_store]
+default_backend = ceph_{{ cephmon_compose_azs[0] | replace(".", "_") }}
+
+{% for az in cephmon_compose_azs %}
+[ceph_{{ az | replace(".", "_") }}]
+rbd_store_pool = {{ glance_rbd_store_pool }}
+rbd_store_user = {{ glance_rbd_store_user }}
+rbd_store_ceph_conf = /etc/ceph.{{ az }}/ceph.conf
+rbd_store_chunk_size = {{ glance_rbd_store_chunk_size }}
+{% endfor %}
+
+
+[task]
+task_executor = {{ glance_task_executor }}
+
+[database]
+connection = mysql+pymysql://{{ glance_database_user }}:{{ glance_database_password }}@{{ database_address }}:{{ database_port }}/{{ glance_database_name }}
+min_pool_size = {{ glance_db_min_pool_size }}
+max_pool_size = {{ glance_db_max_pool_size }}
+pool_timeout = {{ glance_db_pool_timeout }}
+max_retries = {{ glance_db_max_retries }}
+max_overflow = {{ glance_db_max_overflow }}
+db_retry_interval = {{ glance_db_retry_interval }}
+db_inc_retry_interval = {{ glance_db_inc_retry_interval }}
+db_max_retry_interval = {{ glance_db_max_retry_interval }}
+db_max_retries = {{ glance_db_max_retries }}
+
+[keystone_authtoken]
+auth_type = {{ glance_keystone_auth_plugin }}
+auth_url = {{ keystone_auth_url }}
+www_authenticate_uri = {{ keystone_auth_url }}
+project_domain_id = {{ glance_service_project_domain_id }}
+user_domain_id = {{ glance_service_user_domain_id }}
+project_name = {{ glance_service_project_name }}
+username = {{ glance_service_user_name }}
+password = {{ glance_service_password }}
+region_name = {{ keystone_service_region }}
+
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+token_cache_time = 300
+
+[oslo_policy]
+policy_file = {{ glance_policy_file }}
+policy_default_rule = {{ glance_policy_default_rule }}
+policy_dirs = {{ glance_policy_dirs }}
+
+[oslo_messaging_rabbit]
+rabbit_notification_exchange = glance
+rabbit_notification_topic = notifications
+amqp_durable_queues = {{ glance_amqp_durable_queues }}
+rabbit_ha_queues = {{ glance_rabbit_ha_queues }}
+
+[oslo_messaging_notifications]
+driver = messagingv2
+transport_url = {{ notify_transport_url }}
+
+[paste_deploy]
+flavor = {{ glance_flavor }}
+
+[profiler]
+enabled = {{ glance_profiler_enabled }}
+
+{% if glance_proxy_headers_parsing | bool %}
+[oslo_middleware]
+enable_proxy_headers_parsing = True
+{% endif %}

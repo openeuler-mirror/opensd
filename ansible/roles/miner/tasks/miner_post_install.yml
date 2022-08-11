@@ -1,0 +1,31 @@
+---
+- name: Initialization the local fact for need_db_sync
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "miner"
+    option: "need_db_sync"
+    value: True
+  when: ('miner' not in ansible_local['openstack_ansible']) or
+        ('need_db_sync' not in ansible_local['openstack_ansible']['miner'])
+
+- name: Initialization the local fact for need_db_init
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "miner"
+    option: "need_db_init"
+    value: True
+  when: ('miner' not in ansible_local['openstack_ansible']) or
+        ('need_db_init' not in ansible_local['openstack_ansible']['miner'])
+
+- name: Set the local fact for need_db_upgrade
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "miner"
+    option: "need_db_upgrade"
+    value: True
+  when: install_packages is changed
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"

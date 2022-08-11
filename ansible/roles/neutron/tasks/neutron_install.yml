@@ -1,0 +1,47 @@
+---
+- name: Install neutron packages
+  package:
+    name: "{{ neutron_package_list }}"
+    state: "{{ neutron_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  notify:
+    - Restart neutron services
+
+- name: Remove known problem packages
+  package:
+    name: "{{ item }}"
+    state: absent
+  register: remove_packages
+  until: remove_packages is success
+  retries: 5
+  delay: 2
+  with_items: "{{ neutron_remove_distro_packages }}"
+
+- name: Initialise the upgrade facts
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: neutron
+    option: "{{ item.name }}"
+    value: "{{ item.state }}"
+  with_items:
+    - name: "need_db_expand"
+      state: True
+    - name: "need_db_contract"
+      state: True
+    - name: "need_db_lbaas_upgrade"
+      state: True
+  when: (neutron_services['neutron-server']['group'] in group_names) and
+        (install_packages is changed) or
+        (ansible_local is not defined) or
+        ('openstack_ansible' not in ansible_local) or
+        ('neutron' not in ansible_local['openstack_ansible']) or
+        ('need_db_expand' not in ansible_local['openstack_ansible']['neutron']) or
+        ('need_db_contract' not in ansible_local['openstack_ansible']['neutron'])
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"

@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+
+# General
+[DEFAULT]
+debug = {{ debug }}
+
+num_sync_threads = {{ neutron_num_sync_threads | default(neutron_api_threads) }}
+
+# Drivers
+interface_driver = {{ neutron_plugins[neutron_plugin_type].driver_interface }}
+dhcp_driver = {{ neutron_driver_dhcp }}
+
+# Metadata
+enable_isolated_metadata = True
+force_metadata = {{ neutron_dnsmasq_force_metadata }}
+
+[agent]
+availability_zone = {{ availability_zone }}

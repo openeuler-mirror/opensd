@@ -1,0 +1,10 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+
+- include_tasks: nova_install.yml
+
+- include_tasks: nova_db_setup.yml
+  when: inventory_hostname == nova_setup_host
+
+- include_tasks: nova_register.yml
+  when: inventory_hostname == nova_setup_host

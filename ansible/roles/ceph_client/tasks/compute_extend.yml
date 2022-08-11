@@ -1,0 +1,9 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: ceph_install.yml
+
+- include_tasks: ceph_config.yml
+
+- include_tasks: ceph_auth.yml
+
+- include_tasks: ceph_check.yml

@@ -1,0 +1,33 @@
+# {{ ansible_managed }}
+
+# General
+[terra_auth]
+auth_url = http://{{ sdn_controller_ip_address }}/api/authentication/oauth/token 
+username = {{ sdn_controller_username }}
+password = {{ sdn_controller_password }}
+
+[terra_orch]
+fabric_name = {{ fabric_name }}
+url = http://{{ sdn_controller_ip_address }}/api/orch/v1.0
+
+[terra_fc]
+url = http://{{ sdn_controller_ip_address }}/fc/v3.0/
+
+[terra_nfv]
+enable_firewall = {{ enable_neutron_fwaas }}
+url = http://{{ sdn_controller_ip_address }}/api/dc1/nsc/v1.0/
+firewall_device_group_name_mapping = default:firewall_device_group_name:BGP:wan
+enable_qos = true
+
+[ml2_terra]
+physical_network_strategy = hostname
+physical_network = public
+enable_security_group = True
+arp_proxy = True
+ext_net_subnet_fake_gw_ip = {{ ext_net_subnet_fake_gw_ip }}
+ext_net_subnet_fake_cidr = {{ ext_net_subnet_fake_cidr }}
+port_fake_ip_addr = {{ port_fake_ip_addr }}
+
+[etcd_conn]
+etcd_host = 127.0.0.1
+

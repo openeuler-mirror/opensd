@@ -1,0 +1,43 @@
+#############
+# OpenStack #
+#############
+
+[composite:dimsapi_agent]
+use = call:dimsagent.api:root_app_factory
+/v1: openstack_dimsagent_api
+
+[composite:openstack_dimsagent_api]
+use = call:dimsagent.api.middleware.auth:pipeline_factory
+noauth = cors faultwrap http_proxy_to_wsgi sizelimit noauth api
+keystone = cors faultwrap http_proxy_to_wsgi sizelimit authtoken keystonecontext api
+keystone_nolimit = cors faultwrap http_proxy_to_wsgi sizelimit authtoken keystonecontext api
+
+[filter:faultwrap]
+paste.filter_factory = dimsagent.api.middleware.fault:FaultWrapper.factory
+
+[filter:noauth]
+paste.filter_factory = dimsagent.api.middleware.auth:NoAuthMiddleware.factory
+
+[filter:sizelimit]
+paste.filter_factory = oslo_middleware.sizelimit:RequestBodySizeLimiter.factory
+
+[filter:http_proxy_to_wsgi]
+paste.filter_factory = oslo_middleware.http_proxy_to_wsgi:HTTPProxyToWSGI.factory
+
+[app:api]
+paste.app_factory = dimsagent.api.v1.router:APIRouter.factory
+
+
+##########
+# Shared #
+##########
+
+[filter:keystonecontext]
+paste.filter_factory = dimsagent.api.middleware.auth:DimsagentKeystoneContext.factory
+
+[filter:authtoken]
+paste.filter_factory = keystonemiddleware.auth_token:filter_factory
+
+[filter:cors]
+paste.filter_factory = oslo_middleware.cors:filter_factory
+oslo_config_project = dimsagent

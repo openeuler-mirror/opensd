@@ -1,0 +1,37 @@
+---
+- name: Ensure miner packages installed
+  package:
+    name: "{{ miner_package_list }}"
+    state: "{{ miner_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  notify: Restart miner services
+
+- name: Copying over miner.conf
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/miner.conf.j2"
+      - "{{ node_custom_config }}/global.conf"
+      - "{{ node_custom_config }}/miner.conf"
+      - "{{ node_custom_config }}/miner/miner.conf"
+      - "{{ node_custom_config }}/miner/{{ inventory_hostname }}/miner.conf"
+    dest: "/etc/miner/miner.conf"
+    mode: "0666"
+  become: true
+  notify:
+    - Restart miner services
+
+- name: Copying over api-paste.ini
+  template:
+    src: "{{ item }}"
+    dest: "/etc/miner/api-paste.ini"
+    owner: root
+    group: "{{ miner_system_user_name }}"
+    mode: "0660"
+  with_first_found:
+    - "{{ node_custom_config }}/miner/api-paste.ini"
+    - "api-paste.ini.j2"
+  notify:
+    - Restart miner services

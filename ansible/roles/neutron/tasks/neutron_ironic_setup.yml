@@ -1,0 +1,36 @@
+---
+- name: Install networking generic switch
+  package:
+    name: "python2-networking-generic-switch"
+    state: "{{ neutron_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  notify:
+    - Restart neutron services
+
+- name: Copying over neutron ml2 config
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/{{ item.src }}.j2"
+      - "{{ node_custom_config }}/global.conf"
+      - "{{ node_custom_config }}/{{ item.src }}"
+      - "{{ node_custom_config }}/neutron/{{ item.src }}"
+      - "{{ node_custom_config }}/neutron/{{ inventory_hostname }}/{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "0666"
+  become: true
+  with_items:
+    - src: "{{ neutron_plugins[neutron_plugin_type].plugin_ini }}"
+      dest: "{{ neutron_conf_dir }}/{{ neutron_plugins[neutron_plugin_type].plugin_ini }}"
+  notify:
+    - Restart neutron services
+
+- name: Create plugin.ini file link
+  file:
+    src: /etc/neutron/plugins/ml2/ml2_conf.ini
+    dest: /etc/neutron/plugin.ini
+    state: link
+  notify:
+    - Restart neutron services

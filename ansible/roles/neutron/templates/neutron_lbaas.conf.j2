@@ -1,0 +1,30 @@
+# {{ ansible_managed }}
+
+# Service providers
+{% if neutron_lbaasv2 | bool %}
+
+[service_providers]
+{% if neutron_services['neutron-server']['group'] in group_names %}
+{% for provider in control_neutron_lbaasv2_service_provider %}
+service_provider = {{ provider }}
+{% endfor %}
+{% elif neutron_services['neutron-lbaasv2-agent']['group'] in group_names %}
+{% for provider in compute_neutron_lbaasv2_service_provider %}
+service_provider = {{ provider }}
+{% endfor %}
+{% endif %}
+
+[service_auth]
+auth_plugin = {{ neutron_keystone_auth_plugin }}
+# this needs to have a v3 added manually :-(
+auth_url = {{ keystone_auth_url }}/v3
+admin_project_domain = {{ neutron_service_project_domain_id }}
+admin_user_domain = {{ neutron_service_user_domain_id }}
+admin_tenant_name = {{ neutron_service_project_name }}
+admin_user = {{ neutron_service_user_name }}
+admin_password = {{ neutron_service_password }}
+region = {{ keystone_service_region }}
+endpoint_type = internalURL
+service_name = neutron
+auth_version = 3
+{% endif %}

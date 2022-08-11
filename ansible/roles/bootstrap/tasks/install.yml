@@ -1,0 +1,47 @@
+---
+- name: Upgrade all packages
+  yum:
+    name: '*'
+    state: latest
+  when: upgrade_all_packages | bool
+
+- name: Check if firewalld is installed
+  command: rpm -q firewalld
+  register: firewalld_check
+  failed_when: firewalld_check.rc > 1
+
+- name: Disable firewalld
+  become: True
+  service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  with_items:
+    - firewalld
+  when:
+    - firewalld_check.rc == 0
+
+- name: Install yum packages
+  yum:
+    name: "{{ redhat_pkg_install }}"
+    state: present
+    update_cache: yes
+  become: True
+  when:
+    - redhat_pkg_install != ""
+
+- name: Remove packages
+  package:
+    name: "{{ item }}"
+    state: absent
+  with_items: "{{ redhat_pkg_removals }}"
+  become: True
+  when:
+    - item != ""
+
+- include_tasks: vgpu_install.yml
+  when: "gpu_server_type is defined and gpu_server_type == 'vgpu'"
+
+- include_tasks: config_for_pass_through.yml
+  when: "gpu_server_type is defined and gpu_server_type == 'pass_through'"
+

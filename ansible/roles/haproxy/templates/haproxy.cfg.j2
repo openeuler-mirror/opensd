@@ -1,0 +1,142 @@
+#jinja2: trim_blocks: False
+global
+  chroot /var/lib/haproxy
+  user haproxy
+  group haproxy
+  daemon
+  log {{ syslog_server }}:{{ syslog_udp_port }} {{ syslog_haproxy_facility }}
+  maxconn {{ haproxy_max_connections }}
+  stats socket /var/lib/haproxy/stats
+defaults
+  log global
+  mode http
+  option redispatch
+  option httplog
+  option forwardfor
+  maxconn {{ haproxy_max_connections }}
+  retries 3
+  timeout http-request 10s
+  timeout queue 1m
+  timeout connect 10s
+  timeout client {{ haproxy_client_timeout }}
+  timeout server {{ haproxy_server_timeout }}
+  timeout check 10s
+  balance {{ haproxy_defaults_balance }}
+
+listen stats
+   bind {{ api_interface_address }}:{{ haproxy_stats_port }}
+   mode http
+   stats enable
+   stats uri /
+   stats refresh 15s
+   stats realm Haproxy\ Stats
+   stats auth {{ haproxy_user }}:{{ haproxy_password }}
+
+{% if enable_rabbitmq | bool %}
+listen rabbitmq_management
+  bind {{ opensd_vip_address }}:{{ rabbitmq_management_port }}
+{% for host in groups['rabbitmq'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_management_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+{% endif %}
+
+{% if enable_keystone | bool %}
+listen keystone_internal
+  bind {{ opensd_vip_address }}:{{ keystone_service_port }}
+{% for host in groups['keystone'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ keystone_service_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+{% endif %}
+
+{% if enable_glance | bool %}
+listen glance_registry
+  bind {{ opensd_vip_address }}:{{ glance_registry_port }}
+{% for host in groups['glance-registry'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ glance_registry_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+
+listen glance_api
+  bind {{ opensd_vip_address }}:{{ glance_api_port }}
+  timeout client {{ haproxy_glance_api_client_timeout }}
+  timeout server {{ haproxy_glance_api_server_timeout }}
+{% for host in groups['glance-api'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ glance_api_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+{% endif %}
+
+{% if enable_nova | bool %}
+listen nova_api
+  bind {{ opensd_vip_address }}:{{ nova_api_port }}
+{% for host in groups['nova-api'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ nova_api_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+
+listen nova_metadata
+  bind {{ opensd_vip_address }}:{{ nova_metadata_port }}
+{% for host in groups['nova-api'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ nova_metadata_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+
+{% if not enable_cells | bool %}
+listen nova_novncproxy
+  bind {{ opensd_vip_address }}:{{ nova_novncproxy_port }}
+  timeout tunnel 1h
+{% for host in groups['nova-api'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ nova_novncproxy_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+{% endif %}
+
+listen placement_api
+  bind {{ opensd_vip_address }}:{{ placement_api_port }}
+{% for host in groups['placement-api'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ placement_api_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+{% endif %}
+
+{% if enable_neutron | bool %}
+listen neutron_server
+  option http-tunnel
+  timeout client 10m
+  timeout server 10m
+  bind {{ opensd_vip_address }}:{{ neutron_server_port }}
+  timeout client 10m
+  timeout server 10m
+{% for host in groups['neutron-server'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ neutron_server_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+{% endif %}
+
+{% if enable_cinder | bool %}
+listen cinder_api
+  bind {{ opensd_vip_address }}:{{ cinder_api_port }}
+{% for host in groups['cinder-api'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ cinder_api_port }} check inter 2000 rise 2 fall 5
+{% endfor %}
+{% endif %}
+
+{% if enable_mariadb | bool %}
+listen mariadb
+  mode tcp
+  timeout client 3600s
+  timeout server 3600s
+  option tcplog
+  option tcpka
+  option mysql-check user haproxy post-41
+  bind {{ opensd_vip_address }}:{{ mariadb_port }}
+{% for host in groups['mariadb'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ mariadb_port }} check inter 2000 rise 2 fall 5 {% if not loop.first %}backup{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if enable_memcached | bool and enable_haproxy_memcached | bool %}
+listen memcached
+  mode tcp
+  timeout client 3600s
+  timeout server 3600s
+  option tcplog
+  option tcpka
+  bind {{ opensd_vip_address }}:{{ memcached_port }}
+{% for host in groups['memcached'] %}
+  server {{ hostvars[host]['ansible_hostname'] }} {{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }} check inter 2000 rise 2 fall 5 {% if not loop.first %}backup{% endif %}
+{% endfor %}
+{% endif %}

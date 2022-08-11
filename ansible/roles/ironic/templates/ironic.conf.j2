@@ -1,0 +1,141 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+debug = {{ debug }}
+
+auth_strategy = {{ ironic_auth_strategy }}
+host = {{ inventory_hostname }}
+
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+enabled_network_interfaces = {{ ironic_enabled_network_interfaces_list }}
+default_network_interface = {{ ironic_default_network_interface }}
+
+## RPC Backend
+transport_url = {{ notify_transport_url }}
+
+# drivers
+enabled_hardware_types = {{ filtered_ironic_drivers | json_query('[*].hardware_type') | unique | join(',') }}
+enabled_boot_interfaces = {{ filtered_ironic_drivers | json_query('[*].boot') | unique | join(',') }}
+enabled_deploy_interfaces = {{ filtered_ironic_drivers | json_query('[*].deploy') | unique | join(',') }}
+enabled_inspect_interfaces = {{ filtered_ironic_drivers | json_query('[*].inspect') | unique | join(',') }}
+enabled_management_interfaces = {{ filtered_ironic_drivers | json_query('[*].management') | unique | join(',') }}
+enabled_power_interfaces = {{ filtered_ironic_drivers | json_query('[*].power') | unique | join(',') }}
+
+isolinux_bin = /usr/share/syslinux/isolinux.bin
+logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(global_request_id)s %(request_id)s %(user_identity)s] %(instance)s%(message)s
+
+[agent]
+deploy_logs_collect = always
+image_download_source = http
+stream_raw_images = false
+force_raw_images = false
+
+[conductor]
+{% if ironic_standalone | bool %}
+api_url = http://{{ ironic_tftp_server_address }}:{{ haproxy_ironic_service_port if (groups['baremetal'] | count() > 1) else ironic_service_port }}/
+{% endif %}
+sync_power_state_interval = {{ ironic_sync_power_state_interval }}
+automated_clean = {{ ironic_automated_clean }}
+
+inspect_wait_timeout = 1500
+deploy_callback_timeout = 1200
+clean_callback_timeout = 900
+rescue_callback_timeout = 900
+
+[database]
+connection = {{ ironic_db_connection_string }}
+min_pool_size = {{ ironic_db_min_pool_size }}
+max_pool_size = {{ ironic_db_max_pool_size }}
+pool_timeout = {{ ironic_db_pool_timeout }}
+max_retries = {{ ironic_db_max_retries }}
+max_overflow = {{ ironic_db_max_overflow }}
+db_retry_interval = {{ ironic_db_retry_interval }}
+db_inc_retry_interval = {{ ironic_db_inc_retry_interval }}
+db_max_retry_interval = {{ ironic_db_max_retry_interval }}
+db_max_retries = {{ ironic_db_max_retries }}
+
+[deploy]
+default_boot_option = local
+http_root = {{ ironic_system_home_folder }}/httproot
+http_url = http://{{ ironic_tftp_server_address }}:{{ httproot_service_port }}
+
+[glance]
+# TODO(evrardjp): Remove this in the future to use the service catalog
+# and reduce the amount of variables.
+auth_strategy = {{ ironic_auth_strategy }}
+auth_url = {{ ironic_glance_keystone_auth_url }}
+auth_type = {{ ironic_glance_keystone_auth_plugin }}
+project_name = {{ ironic_glance_service_project_name }}
+project_domain_id = {{ ironic_glance_service_project_domain_id }}
+username = {{ ironic_glance_service_user_name }}
+user_domain_id = {{ ironic_glance_service_user_domain_id }}
+password = {{ glance_service_password }}
+glance_api_servers = {{ ironic_glance_api_servers }}
+region_name = {{ glance_service_region }}
+
+[inspector]
+auth_url = {{ keystone_auth_url }}
+username =  {{ ironic_inspector_service_user_name }}
+password={{ ironic_inspector_service_password }}
+project_name={{ ironic_inspector_service_project_name }}
+project_domain_name={{ ironic_inspector_service_project_domain_name }}
+user_domain_name= {{ ironic_inspector_service_user_domain_name }}
+auth_type = {{ ironic_inspector_keystone_auth_type }}
+
+[keystone]
+region_name = {{ ironic_service_region }}
+
+[keystone_authtoken]
+auth_type = {{ ironic_keystone_auth_type }}
+auth_url = {{ keystone_auth_url }}
+www_authenticate_uri = {{ keystone_auth_url }}
+project_domain_name = {{ ironic_service_project_domain_name }}
+user_domain_name = {{ ironic_service_user_domain_name }}
+project_name = {{ ironic_service_project_name }}
+username = {{ ironic_service_user_name }}
+password = {{ ironic_service_password }}
+region_name = {{ keystone_service_region }}
+
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+token_cache_time = 300
+
+[matchmaker_redis]
+
+[neutron]
+url = {{ neutron_service_adminurl }}
+region_name = {{ neutron_service_region }}
+auth_type = password
+# Keystone client plugin password option
+password = {{ neutron_service_password }}
+# Keystone client plugin username option
+username = {{ neutron_service_user_name }}
+project_name = {{ neutron_service_project_name }}
+user_domain_name = {{ neutron_service_domain_name |default("Default") }}
+project_domain_name = {{ neutron_service_domain_name |default("Default") }}
+# Keystone client plugin authentication URL option
+auth_url = {{ keystone_auth_url }}
+provisioning_network = {{ ironic_neutron_provisioning_network_uuid }}
+cleaning_network = {{ ironic_neutron_cleaning_network_uuid }}
+url_timeout = 90
+
+[oslo_concurrency]
+
+[oslo_messaging_notifications]
+transport_url = {{ rpc_transport_url }}
+topics = notifications
+driver = messagingv2
+
+[oslo_messaging_rabbit]
+amqp_durable_queues = {{ ironic_amqp_durable_queues }}
+rabbit_ha_queues = {{ ironic_rabbit_ha_queues }}
+
+[pxe]
+ipxe_enabled = false
+pxe_append_params = nofb nomodeset vga=normal coreos.autologin
+image_cache_size = 204800
+pxe_config_template_by_arch = aarch64:$pybasedir/drivers/modules/pxe_aarch64_grub_config.template
+
+[dhcp]
+dhcp_provider = none

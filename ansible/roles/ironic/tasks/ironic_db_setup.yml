@@ -1,0 +1,61 @@
+---
+- name: Create DB for service
+  mysql_db:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ ironic_galera_address }}"
+    name: "{{ item }}"
+    state: "present"
+  delegate_to: "{{ ironic_db_setup_host }}"
+  with_items:
+    - "{{ ironic_galera_database }}"
+    - "{{ ironic_inspector_galera_database }}"
+  no_log: True
+
+- name: Grant access to the ironic DB for the service
+  mysql_user:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ ironic_galera_address }}"
+    name: "{{ ironic_galera_user }}"
+    password: "{{ ironic_mysql_password }}"
+    host: "{{ item }}"
+    state: "present"
+    priv: "{{ ironic_galera_database }}.*:ALL"
+  delegate_to: "{{ ironic_db_setup_host }}"
+  with_items:
+    - "localhost"
+    - "%"
+  no_log: True
+
+- name: Grant access to the ironic-inspector DB for the service
+  mysql_user:
+    login_user: "{{ galera_root_user }}"
+    login_password: "{{ galera_root_password }}"
+    login_host: "{{ ironic_galera_address }}"
+    name: "{{ ironic_inspector_galera_user }}"
+    password: "{{ ironic_inspector_mysql_password }}"
+    host: "{{ item }}"
+    state: "present"
+    priv: "{{ ironic_inspector_galera_database }}.*:ALL"
+  delegate_to: "{{ ironic_db_setup_host }}"
+  with_items:
+    - "localhost"
+    - "%"
+  no_log: True
+
+- name: update ironic database schema
+  command: "{{ ironic_bin }}/ironic-dbsync --config-file /etc/ironic/ironic.conf upgrade"
+  become: yes
+  become_user: "{{ ironic_system_user_name }}"
+  changed_when: false
+  notify:
+    - restart ironic services
+
+- name: update ironic-inspector database schema
+  command: "{{ ironic_bin }}/ironic-inspector-dbsync --config-file /etc/ironic-inspector/inspector.conf upgrade"
+  become: yes
+  become_user: "{{ ironic_inspector_system_user_name }}"
+  changed_when: false
+  notify:
+    - restart ironic services

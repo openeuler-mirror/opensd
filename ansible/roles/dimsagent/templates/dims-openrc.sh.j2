@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+
+export OS_PROJECT_DOMAIN_NAME=Default
+export OS_USER_DOMAIN_NAME=Default
+export OS_PROJECT_NAME={{ dims_agent_service_project_name }}
+export OS_USERNAME={{ dims_agent_service_user_name }}
+export OS_PASSWORD={{ dims_agent_service_password }}
+export OS_AUTH_URL={{ keystone_auth_url }}
+export OS_IDENTITY_API_VERSION=3
+export OS_IMAGE_API_VERSION=2
+export OS_REGION_NAME=RegionOne
+
+export PS1='[\u@\h \W(keystone_$OS_USERNAME)]\$ '
+

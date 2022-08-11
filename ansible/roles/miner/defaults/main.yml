@@ -1,0 +1,70 @@
+---
+# Base setting
+debug: "{{ openstack_logging_debug }}"
+miner_db_setup_host: "{{ groups['mariadb'][0] }}"
+
+# Miner system use info
+miner_system_user_name: miner
+miner_system_group_name: miner
+miner_system_comment: "nova system user"
+miner_system_shell: /bin/false
+miner_system_home_folder: "/var/lib/{{ miner_system_user_name }}"
+miner_log_dir: /var/log/miner
+
+# Package info
+miner_package_list:
+  - python-miner
+  - miner
+  - python-ironicclient
+  - python-troveclient
+
+miner_package_state: "present"
+
+# Database info
+miner_database_name: miner
+miner_mysql_user: miner
+miner_db_max_overflow: 200
+miner_db_max_pool_size: 500
+miner_db_pool_timeout: 30
+miner_db_min_pool_size: 100
+miner_db_max_retries: 5
+miner_db_retry_interval: 2
+miner_db_inc_retry_interval: true
+miner_db_max_retry_interval: 2
+
+# Config info
+miner_dhcp_agents_per_network: 2
+osapi_miner_listen_port: "{{ miner_api_port }}"
+
+# oslo mesage notification info
+miner_notification_urls: "{% for host in groups['rabbitmq'] %}amqp://{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_port }}{% if not loop.last %};{% endif %}{% endfor %}"
+miner_notification_exchange: instructionflowexchange
+miner_notification_routing_key: callbackResponceKey
+
+# oslo mesage rpc info
+miner_messaging_urls: "{{ rpc_transport_url }}"
+miner_cell_messaging_urls: "{{ cell_rpc_transport_url }}"
+miner_report_urls: "{{ miner_notification_urls }}"
+miner_report_exchange: instructionflowexchange
+miner_report_routing_key: resourceStatusReportKey
+
+# openstack indentify
+miner_tenant_name: "{{ keystone_admin_tenant_name }}"
+miner_tenant_username: "{{ keystone_admin_user_name }}"
+miner_tenant_password: "{{ keystone_admin_password }}"
+
+# Quota
+miner_available_quota: "server_quota: 10, volume_quota: 10, cpu_quota: 10, memory_quota: 10, storage_quota: 10"
+
+miner_max_handle_instance_job: 30
+
+miner_exchange: openstack
+miner_notification_topics: notifications
+
+sentry_listen_request_urls: "{% for host in groups['rabbitmq'] %}amqp://{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_port }}{% if not loop.last %};{% endif %}{% endfor %}"
+sentry_request_queues: "{{ availability_zone.split('.')[-1] }}"
+sentry_request_exchange: instructionflowexchange
+sentry_request_routing_key: "{{ availability_zone.split('.')[-1] }}"
+
+miner_amqp_durable_queues: true
+miner_rabbit_ha_queues: true

@@ -1,0 +1,15 @@
+---
+- name: Restart pcsd service
+  service:
+    name: pcsd
+    enabled: true
+    state: restarted
+
+- name: Restart cluster services
+  service:
+    name: "{{ item }}"
+    enabled: true
+    state: restarted
+  with_items:
+    - pacemaker
+    - corosync

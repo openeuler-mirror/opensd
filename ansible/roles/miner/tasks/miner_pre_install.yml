@@ -1,0 +1,29 @@
+---
+- name: create the system group
+  group:
+    name: "{{ miner_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the miner system user
+  user:
+    name: "{{ miner_system_user_name }}"
+    group: "{{ miner_system_group_name }}"
+    comment: "{{ miner_system_comment }}"
+    shell: "{{ miner_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ miner_system_home_folder }}"
+
+- name: Create miner dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(miner_system_user_name) }}"
+    group: "{{ item.group|default(miner_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "/etc/ansible/facts.d/", owner: "root", group: "root" }
+    - { path: "/etc/miner", owner: "root", mode: "0750" }
+    - { path: "{{ miner_system_home_folder }}" }
+    - { path: "{{ miner_log_dir }}", owner: "root", mode: "0750" }

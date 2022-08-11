@@ -1,0 +1,158 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+debug = {{ cinder_logging_debug }}
+fatal_deprecations = {{ cinder_fatal_deprecations }}
+my_ip = {{ cinder_management_address }}
+osapi_volume_listen={{ cinder_management_address }}
+
+osapi_volume_workers = {{ cinder_osapi_volume_workers }}
+
+rootwrap_config = /etc/cinder/rootwrap.conf
+api_paste_config = /etc/cinder/api-paste.ini
+auth_strategy = {{ cinder_auth_strategy }}
+
+enable_force_upload = {{ cinder_enable_force_upload }}
+
+## Cinder API's enabled
+enable_v2_api = {{ cinder_enable_v2_api }}
+
+## Cinder Scheduler
+{% if cinder_scheduler_default_filters is defined %}
+scheduler_default_filters={{ cinder_scheduler_default_filters | join(',') }}
+{% endif %}
+
+## RabbitMQ RPC
+executor_thread_pool_size = {{ cinder_rpc_executor_thread_pool_size }}
+rpc_response_timeout = {{ cinder_rpc_response_timeout }}
+
+transport_url = {{ rpc_transport_url }}
+
+## Quota
+quota_volumes = {{ cinder_quota_volumes }}
+quota_snapshots = {{ cinder_quota_snapshots }}
+quota_consistencygroups = {{ cinder_quota_consistencygroups }}
+quota_gigabytes = {{ cinder_quota_gigabytes }}
+quota_backups = {{ cinder_quota_backups }}
+quota_backup_gigabytes = {{ cinder_quota_backup_gigabytes }}
+
+## Nova
+nova_catalog_info = {{ cinder_nova_catalog_info }}
+nova_catalog_admin_info = {{ cinder_nova_catalog_admin_info }}
+
+os_region_name = {{ cinder_service_region }}
+
+## Glance
+glance_api_servers = {{ cinder_glance_api_servers }}
+glance_num_retries = 0
+
+volume_clear = {{ cinder_volume_clear }}
+volume_clear_size = {{ cinder_volume_clear_size }}
+volume_clear_ionice = {{ cinder_volume_clear_ionice }}
+volume_name_template = {{ cinder_volume_name_template }}
+
+storage_availability_zone = {{ cinder_storage_availability_zone }}
+{% if cinder_services['cinder-api']['group'] in group_names %}
+default_availability_zone = {{ cinder_default_availability_zone }}
+{% endif %}
+
+target_helper = {{ cinder_target_helper }}
+iscsi_iotype = {{ cinder_iscsi_iotype }}
+iscsi_ip_address = {{ cinder_storage_address }}
+iscsi_num_targets = {{ cinder_iscsi_num_targets }}
+iscsi_port = {{ cinder_iscsi_port }}
+
+client_socket_timeout = {{ cinder_client_socket_timeout }}
+
+{% if cinder_default_volume_type is defined %}
+default_volume_type = {{ cinder_default_volume_type }}
+{% endif %}
+
+# Cinder-volume Hostname
+{% if cinder_services['cinder-volume']['group'] in group_names or cinder_services['cinder-backup']['group'] in group_names %}
+host = {{ availability_zone }}
+{% endif %}
+
+# Cinder backup
+{% if cinder_services['cinder-backup']['group'] in group_names %}
+backup_ceph_conf = {{ backup_ceph_conf }} 
+backup_ceph_user = {{ backup_ceph_user }}
+backup_ceph_pool = {{ backup_ceph_pool }}
+backup_driver = {{ backup_driver }}
+backup_ceph_pool_type = {{ backup_ceph_pool_type }}
+{% endif %}
+
+{% if cinder_backends is defined %}
+enabled_backends={% for backend in cinder_backends|dictsort %}{{ backend.0 }}{% if not loop.last %},{% endif %}{% endfor %}
+
+# All given backend(s)
+{% for backend_section in cinder_backends|dictsort %}
+[{{ backend_section.0 }}]
+{% for key, value in (backend_section.1 | dictsort) if key not in ['extra_volume_types', 'shares'] %}
+{{ key }}={{ value }}
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+
+[backend_defaults]
+target_helper = {{ cinder_target_helper }}
+
+[database]
+connection = mysql+pymysql://{{ cinder_database_user }}:{{ cinder_database_password }}@{{ database_address }}:{{ database_port }}/{{ cinder_database_name }}?charset=utf8
+min_pool_size = {{ cinder_db_min_pool_size }}
+max_pool_size = {{ cinder_db_max_pool_size }}
+pool_timeout = {{ cinder_db_pool_timeout }}
+max_retries = {{ cinder_db_max_retries }}
+max_overflow = {{ cinder_db_max_overflow }}
+db_retry_interval = {{ cinder_db_retry_interval }}
+db_inc_retry_interval = {{ cinder_db_inc_retry_interval }}
+db_max_retry_interval = {{ cinder_db_max_retry_interval }}
+db_max_retries = {{ cinder_db_max_retries }}
+
+[oslo_messaging_rabbit]
+amqp_durable_queues = {{ cinder_amqp_durable_queues }}
+rabbit_ha_queues = {{ cinder_rabbit_ha_queues }}
+
+[oslo_messaging_notifications]
+driver = messagingv2
+transport_url = {{ notify_transport_url }}
+
+[oslo_concurrency]
+lock_path = {{ cinder_lock_path }}
+
+[profiler]
+enabled = {{ cinder_profiler_enabled }}
+trace_sqlalchemy = {{ cinder_profiler_trace_sqlalchemy }}
+hmac_keys = {{ cinder_profiler_hmac_key }}
+
+{% if cinder_barbican_enabled %}
+[barbican]
+auth_endpoint = {{ keystone_service_internalurl }}/v3
+
+[key_manager]
+backend = castellan.key_manager.barbican_key_manager.BarbicanKeyManager
+{% else %}
+{# WORKAROUND KEY MANAGER DEFAULT STRING ISSUE #}
+{# See also: https://bugs.launchpad.net/cinder/+bug/1721236 #}
+{# And:  https://review.openstack.org/#/c/468252/ #}
+[key_manager]
+backend = cinder.keymgr.conf_key_mgr.ConfKeyManager
+{% endif %}
+
+[keystone_authtoken]
+auth_type = {{ cinder_keystone_auth_plugin }}
+auth_url = {{ keystone_auth_url }}
+www_authenticate_uri = {{ keystone_auth_url }}
+project_domain_id = {{ cinder_service_project_domain_id }}
+user_domain_id = {{ cinder_service_user_domain_id }}
+project_name = {{ cinder_service_project_name }}
+username = {{ cinder_service_user_name }}
+password = {{ cinder_service_password }}
+region_name = {{ keystone_service_region }}
+
+memcache_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+token_cache_time = 300

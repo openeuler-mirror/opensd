@@ -1,0 +1,89 @@
+---
+- name: Install distro packages
+  package:
+    name: "{{ ironic_packages_list }}"
+    state: "{{ ironic_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+
+- name: Copying over ironic.conf
+  template:
+    src: "{{ role_path }}/templates/{{ item }}.conf.j2"
+    dest: "/etc/ironic/{{ item }}.conf"
+    owner: "{{ ironic_system_user_name }}"
+    group: "{{ ironic_system_user_name }}"
+    mode: "0660"
+  become: true
+  with_items:
+    - ironic
+  notify:
+    - Restart ironic services
+
+- name: Copying over inspector.conf
+  template:
+    src: "{{ role_path }}/templates/{{ item }}.conf.j2"
+    dest: "/etc/ironic-inspector/{{ item }}.conf"
+    owner: "{{ ironic_inspector_system_user_name }}"
+    group: "{{ ironic_inspector_system_user_name }}"
+    mode: "0660"
+  with_items:
+    - inspector
+    - inspector-dist
+  notify:
+    - Restart ironic services
+
+- name: Copying over dnsmasq.conf
+  template:
+    src: "{{ role_path }}/templates/{{ item }}.conf.j2"
+    dest: "/etc/ironic-inspector/{{ item }}.conf"
+    owner: "{{ ironic_inspector_system_user_name }}"
+    group: "{{ ironic_inspector_system_user_name }}"
+    mode: "0660"
+  with_items:
+    - dnsmasq
+  when: ironic_services['ironic-inspector-dnsmasq']['group'] in group_names
+  notify:
+    - Restart ironic services
+
+- name: Copying pxelinux.cfg default
+  template:
+    src: "{{ item }}"
+    dest: "/tftpboot/pxelinux.cfg/default"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  with_first_found:
+    - "{{ node_custom_config }}/ironic/pxelinux.default.j2"
+    - "pxelinux.default.j2"
+  notify:
+    - Restart ironic services
+
+- name: Copying grub.cfg default
+  template:
+    src: "{{ item }}.j2"
+    dest: "/tftpboot/{{ item }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  with_items:
+    - "grub.cfg"
+    - "grub-arm64.cfg"
+    - "grub-x86_64.cfg"
+  notify:
+    - Restart ironic services
+
+- name: Copying efi files
+  copy:
+    src: "{{ item }}"
+    dest: "/tftpboot/{{ item }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  with_items:
+    - "grubx64.efi"
+    - "grubaa64.efi"
+    - "pxelinux.0"
+  notify:
+    - Restart ironic services

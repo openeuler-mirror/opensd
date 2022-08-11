@@ -1,0 +1,71 @@
+---
+- name: Stop miner api patrol sentry services
+  service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: true
+  with_items:
+    - miner-api.service
+    - miner-patrol.service
+    - miner-sentry.service
+  listen: Restart miner services
+
+- name: Perform a DB upgrade
+  command: "/usr/bin/miner-manage db upgrade"
+  when:
+    - "ansible_local['openstack_ansible']['miner']['need_db_ugrade'] | bool"
+    - inventory_hostname == miner_db_setup_host
+
+- name: Disable the db upgrade local fact
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: miner
+    option: "need_db_upgrade"
+    value: "False"
+  when:
+    - "ansible_local['openstack_ansible']['miner']['need_db_ugrade'] | bool"
+    - inventory_hostname == miner_db_setup_host
+
+- name: Start miner api patrol sentry services
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  with_items:
+    - miner-api.service
+    - miner-patrol.service
+    - miner-sentry.service
+  listen: Restart miner services
+
+- name: Create pcs resource for miner-beat service
+  pcs_resource:
+    name: "miner-beat"
+    resource_class: "ocf"
+    resource_type: "systemd:miner-beat"
+  run_once: true
+  when:
+    - inventory_hostname in groups['miner-beat']
+    - enable_pacemaker | bool
+  listen: Restart miner services
+
+- name: Restart miner-beat service(by pcs)
+  shell: "pcs resource restart miner-beat"
+  run_once: true
+  when:
+    - inventory_hostname in groups['miner-beat']
+    - enable_pacemaker | bool
+  listen: Restart miner services
+
+- name: Restart miner-beat service(by systemd)
+  service:
+    name: "miner-beat"
+    enabled: true
+    state: restarted
+  register: _restart
+  until: _restart  is success
+  retries: 5
+  delay: 2
+  when:
+    - inventory_hostname in groups['miner-beat']
+    - not enable_pacemaker | bool
+  listen: Restart miner services

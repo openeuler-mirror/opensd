@@ -1,0 +1,124 @@
+---
+- name: Initialize local facts
+  ini_file:
+    path: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "galera"
+    option: initialized
+    value: true
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+  tags:
+    - always
+
+- name: Set the galera existing cluster fact
+  set_fact:
+    galera_deployed: "{{ ansible_local['openstack_ansible']['galera']['deployed'] | default(false) | bool }}"
+  tags:
+    - always
+
+- name: Record galera cluster node role
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: galera
+    option: role
+    value: >
+      {%- if inventory_hostname == groups[galera_group_name|default('mariadb')][0] -%}
+        master
+      {%- else -%}
+        slave
+      {%- endif -%}
+  when: ansible_local['openstack_ansible']['galera']['role'] is not defined
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+  tags:
+    - always
+
+- name: Ensure mariadb package installed
+  package:
+    name: "{{ mariadb_packages_name }}"
+    state: "{{ mariadb_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  notify:
+    - Restart mariadb server (ALL)
+
+- name: Ensure auth_gssapi.cnf is absent
+  file:
+    path: /etc/my.cnf.d/auth_gssapi.cnf
+    state: absent
+  notify:
+    - Restart mariadb server (ALL)
+
+- name: Create new cluster tool
+  copy:
+    src: "galera_new_cluster"
+    dest: "/usr/local/bin/galera_new_cluster"
+    mode: "0750"
+
+- name: Create galera initial secure tool
+  template:
+    src: "galera_secure_node.j2"
+    dest: "/usr/local/bin/galera_secure_node"
+    mode: "0750"
+
+- name: Create mariadb log dir
+  file:
+    path: "/var/log/mariadb"
+    state: "directory"
+    group: "mysql"
+    owner: "mysql"
+    mode: "0755"
+
+- name: Create mariadb systemd service config dir
+  file:
+    path: "/etc/systemd/system/mariadb.service.d"
+    state: "directory"
+    group: "root"
+    owner: "root"
+    mode: "0755"
+
+- name: Apply systemd options
+  template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/mariadb.service.d/{{ item.dest }}"
+    mode: "0644"
+  with_items:
+    - { src: "systemd.environment.conf.j2", dest: "environment.conf" }
+    - { src: "systemd.limits.conf.j2", dest: "limits.conf" }
+    - { src: "systemd.restart.conf.j2", dest: "restart.conf" }
+    - { src: "systemd.slice.conf.j2", dest: "slice.conf" }
+    - { src: "systemd.timeout.conf.j2", dest: "timeout.conf" }
+    - { src: "systemd.without-privatedevices.conf.j2", dest: "without-privatedevices.conf" }
+  notify:
+    - Restart mariadb server (ALL)
+
+- name: Reload systemd service files
+  systemd:
+    daemon_reload: yes
+
+- name: Run galera secure
+  command: "/usr/local/bin/galera_secure_node"
+  args:
+    creates: "/var/lib/mysql/opensd_default_secured"
+    warn: no
+  when: ansible_local['openstack_ansible']['galera']['role'] == "master"
+
+- name: Copying over mariadb-server.cnf
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/mariadb-server.cnf.j2"
+      - "{{ node_custom_config }}/mariadb-server.cnf.cnf"
+      - "{{ node_custom_config }}/mariadb/{{ inventory_hostname }}/mariadb-server.cnf"
+    dest: "/etc/my.cnf.d/mariadb-server.cnf"
+    mode: "0755"
+  notify:
+    - Restart mariadb server (ALL)
+

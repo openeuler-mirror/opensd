@@ -1,0 +1,22 @@
+---
+# Author: weimeng <weim6@chinaunicom.cn>
+- name: debug
+  debug:
+    msg: "{{ 'ironic01.cn-develop' | regex_replace('^ironic(.*)$','ag.ironic\\1') }}"
+
+- name: Create nova aggregate group for ironic computes
+  os_nova_host_aggregate:
+    cloud: default
+    state: present
+    name: "{{ item | regex_replace('^az(.*)$','ag\\1') | regex_replace('^AZ(.*)$','AG\\1') | regex_replace('^ironic(.*)$','ag.ironic\\1') }}"
+    availability_zone: "{{ item }}"
+    hosts: |
+      {% set host_list = [] %}
+      {% for host in (groups['compute-cell1-ironic'] + groups['nova-compute']) %}
+      {% if item in hostvars[host]['availability_zone'] %}
+      {% set _ = host_list.append(host if (host in groups['nova-compute']) else host+'-'+item.split('.')[0]) %}
+      {% endif %}
+      {% endfor %}
+      {{ host_list }}
+  with_items: "{{ hostvars[groups['baremetal'][0]]['availability_zone'].split(',') }}"
+  when: enable_ironic | bool

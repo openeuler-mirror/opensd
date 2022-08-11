@@ -1,0 +1,96 @@
+---
+# Ceph client package info
+ceph_client_package_state: "present"
+
+# Path to local ceph.conf file
+# Leave this commented to obtain a ceph.conf from one of the monitors defined in ceph_mons
+#ceph_conf_file: |
+#  [global]
+#  fsid = 4037aa5f-abde-4378-9470-f73dbd6ceaba
+#  mon_initial_members = mon1.example.local,mon2.example.local,mon3.example.local
+#  mon_host = 
+#  auth_cluster_required = cephx
+#  auth_service_required = cephx
+#  auth_client_required = cephx
+
+# Ceph client usernames for glance, cinder+nova and gnocchi
+glance_ceph_client: glance
+cinder_ceph_client: cinder
+
+# by default we assume you use rbd for both cinder and nova, and as libvirt
+# needs to access both volumes (cinder) as boot disks (nova) we default to
+# reuse the cinder_ceph_client
+# only need to change this if you'd use ceph for boot disks and not for volumes
+nova_ceph_client: '{{ cinder_ceph_client }}'
+
+# overruled in passwor.yml:
+nova_ceph_client_uuid: 457eb676-33da-42ec-9a8c-9293d545c337
+
+ceph_cinder_service_names:
+  - openstack-cinder-volume
+  - openstack-cinder-backup
+
+ceph_nova_service_names:
+  - openstack-nova-compute
+
+ceph_glance_service_names:
+  - openstack-glance-api
+
+ceph_components:
+  - component: glance-api
+    package: ["python-rados","python-rbd","ceph-common"]
+    client:
+      - '{{ glance_ceph_client }}'
+    service: '{{ ceph_glance_service_names }}'
+  - component: cinder-volume
+    package: "{{ ['ceph-common', 'python-rados', 'python-rbd'] if (ansible_architecture == 'aarch64') else ['ceph-common', 'python-ceph'] }}"
+    client:
+      - '{{ cinder_ceph_client }}'
+    service: '{{ ceph_cinder_service_names }}'
+  - component: cinder-backup
+    package: "{{ ['ceph-common', 'python-rados', 'python-rbd'] if (ansible_architecture == 'aarch64') else ['ceph-common', 'python-ceph'] }}"
+    client:
+      - '{{ cinder_ceph_client }}'
+    service: '{{ ceph_cinder_service_names }}'
+  - component: nova-compute
+    package: "{{ ['libvirt-daemon-kvm', 'libvirt-client', 'ceph-common', 'python-rados', 'python-rbd'] if (ansible_architecture == 'aarch64') else ['libvirt-daemon-kvm', 'libvirt-client', 'ceph-common', 'python-ceph'] }}"
+    client:
+      - '{{ nova_ceph_client }}'
+    service: '{{ ceph_nova_service_names }}'
+
+ceph_extra_components: []
+
+ceph_client_filtered_packages: |-
+ {% set packages = [] %}
+ {% for comp in (ceph_components + ceph_extra_components) %}
+ {%   if comp.component in group_names %}
+ {%     for pkg_name in comp.package %}
+ {%       if pkg_name not in packages %}
+ {%          set _ = packages.append(pkg_name) %}
+ {%       endif %}
+ {%     endfor %}
+ {%   endif %}
+ {% endfor %}
+ {{ packages }}
+
+ceph_client_filtered_services: |-
+ {% set services = [] %}
+ {% for comp in (ceph_components + ceph_extra_components) %}
+ {%   if comp.component not in ['cinder-volume', 'cinder-backup'] and comp.component in group_names %}
+ {%     set _ = services.append(comp.service) %}
+ {%   endif %}
+ {% endfor %}
+ {{ services }}
+
+ceph_client_filtered_clients: |-
+ {% set clients = [] %}
+ {% for comp in (ceph_components + ceph_extra_components) %}
+ {%   if comp.component in group_names %}
+ {%     for client in comp.client %}
+ {%       set _ = clients.append(client) %}
+ {%     endfor %}
+ {%   endif %}
+ {% endfor %}
+ {{ clients }}
+
+az_cephmon_compose: []

@@ -1,0 +1,22 @@
+---
+- name: Synchronize the nova API DB schema
+  command: "{{ nova_bin }}/nova-manage api_db sync"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+
+# This is idempotent and therefore safe for greenfield
+# and brownfield installations.
+- name: Create the cell0 mapping entry in the nova API DB
+  command: >-
+    {{ nova_bin }}/nova-manage cell_v2 map_cell0
+      --database_connection mysql+pymysql://{{ nova_cell0_mysql_user }}:{{ nova_cell0_mysql_password }}@{{ database_address }}/{{ nova_cell0_database_name }}?charset=utf8
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+
+- name: Synchronize the nova DB schema
+  command: "{{ nova_bin }}/nova-manage db sync"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false

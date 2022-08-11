@@ -1,0 +1,20 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+#- include_tasks: trove_pre_install.yml
+
+- include_tasks: trove_install.yml
+
+- include_tasks: trove_db_setup.yml
+  when: inventory_hostname == trove_setup_host
+
+- include_tasks: trove_database.yml
+  when: inventory_hostname == trove_setup_host
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: set_qos.yml
+  when: inventory_hostname == trove_setup_host
+# (TODO)
+- include_tasks: trove_check.yml
+-

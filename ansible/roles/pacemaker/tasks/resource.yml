@@ -1,0 +1,26 @@
+---
+### fencing setup
+- name: Setup automatic fence_xvm
+  include_tasks: fence_xvm.yml
+  when: cluster_configure_fence_xvm is defined and cluster_configure_fence_xvm|bool
+
+- name: Setup fence_vmware_soap
+  include_tasks: fence_vmware_soap.yml
+  when: cluster_configure_fence_vmware_soap is defined and cluster_configure_fence_vmware_soap|bool
+
+- name: Setup fence_kdump
+  include_tasks: fence_kdump.yml
+  when: cluster_configure_fence_kdump is defined and cluster_configure_fence_kdump|bool
+
+- name: Setup custom fence devices
+  include_tasks: fence_custom.yml
+  when: cluster_configure_fence_custom is defined and cluster_configure_fence_custom|bool
+
+### create virtual ip resource
+- name: Create virtual ip resource
+  pcs_resource:
+    name: 'opensd-VirtualIP'
+    resource_type: 'ocf:heartbeat:IPaddr2'
+    options: "ip={{ vip_address }} cidr_netmask={{ cidr_netmask }} nic={{ api_interface }} op monitor interval={{ cluster_check_interval }}"
+    state: present
+  when: inventory_hostname == groups[pcs_cluster_group_name][0]

@@ -1,0 +1,26 @@
+#!/bin/bash
+# Change with your pools name
+export poolname=volumes
+ 
+# CHange with your disk image name
+export rbdimage=dims-{{ ansible_hostname }}
+ 
+# Mount Directory
+export mountpoint={{ dims_agent_data_dir }}
+ 
+# Image mount/unmount and pool are passed from the systems service as arguments
+# Determine if we are mounting or unmounting
+if [ "$1" == "m" ]; then
+   modprobe rbd
+   rbd feature disable $rbdimage exclusive-lock object-map fast-diff deep-flatten -k /etc/ceph/ceph.client.cinder.keyring -n client.cinder
+   rbd map $rbdimage -p $poolname -k /etc/ceph/ceph.client.cinder.keyring -n client.cinder
+   mkdir -p $mountpoint
+   # Format device
+   mkfs.xfs /dev/rbd0
+   mount /dev/rbd/$poolname/$rbdimage $mountpoint
+fi
+if [ "$1" == "u" ]; then
+   umount $mountpoint
+   rbd unmap /dev/rbd/$poolname/$rbdimage
+fi
+

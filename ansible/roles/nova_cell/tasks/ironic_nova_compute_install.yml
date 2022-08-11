@@ -1,0 +1,44 @@
+---
+- name: Set ironic availability zone
+  set_fact:
+    ironic_availability_zone: "{{ ironic_availability_zone_full_name.split('.')[0] }}"
+
+- name: Create nova dir in ironic-control nodes
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(nova_system_user_name) }}"
+    group: "{{ item.group|default(nova_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "/etc/nova", mode: "0750" }
+    - { path: "{{ nova_system_home_folder }}-{{ ironic_availability_zone }}" }
+    - { path: "{{ nova_system_home_folder }}-{{ ironic_availability_zone }}/.ssh", mode: "0700" }
+    - { path: "{{ nova_system_home_folder }}-{{ ironic_availability_zone }}/instances" }
+  register: nova_conf_dir
+
+- name: Copying over nova.conf & service conf
+  template:
+    src: "{{ role_path }}/templates/{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "root"
+    group: "nova"
+    mode: "0660"
+  become: true
+  register: nova_confs
+  with_items:
+    - { src: "nova.conf.j2", dest: "/etc/nova/nova-{{ ironic_availability_zone }}.conf" }
+    - { src: "openstack-nova-compute.service.j2", dest: "/usr/lib/systemd/system/openstack-nova-compute-{{ ironic_availability_zone }}.service" }
+
+- name: Restart nova-compute-{{ ironic_availability_zone }} services
+  systemd:
+    name: "openstack-nova-compute-{{ ironic_availability_zone }}"
+    enabled: yes
+    state: "restarted"
+    daemon_reload: yes
+  when:
+    - nova_conf_dir.changed | bool
+      or nova_confs.changed | bool
+      or install_packages_for_ironic.changed | bool
+
+

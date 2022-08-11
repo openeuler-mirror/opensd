@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+# {{ ansible_managed }}
+
+set -ev
+
+STOP_MYSQL=false
+
+if ! systemctl status {{ galera_mariadb_service_name }}{{ server_port }}; then
+  STOP_MYSQL=true
+  systemctl set-environment MYSQLD_OPTS="--bind-address=127.0.0.1"
+  systemctl start {{ galera_mariadb_service_name }}{{ server_port }}
+  sleep 10
+  systemctl status {{ galera_mariadb_service_name }}{{ server_port }}
+fi
+
+if mysqladmin --no-defaults --port={{ server_port }} --socket=/var/lib/mysql{{ server_port }}/mysql.sock --host=localhost --user=root password "{{ galera_root_password }}"; then
+  mysql --no-defaults --socket=/var/lib/mysql{{ server_port }}/mysql.sock -e "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('$rootpass');"
+  mysql --no-defaults --socket=/var/lib/mysql{{ server_port }}/mysql.sock -e "DELETE FROM mysql.user WHERE user='';"
+  mysql --no-defaults --socket=/var/lib/mysql{{ server_port }}/mysql.sock -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('%', 'localhost', '127.0.0.1', '::1');"
+  mysql --no-defaults --socket=/var/lib/mysql{{ server_port }}/mysql.sock -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%';"
+  mysql --no-defaults --socket=/var/lib/mysql{{ server_port }}/mysql.sock -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '{{ galera_root_password }}' WITH GRANT OPTION;"
+  mysql --no-defaults --socket=/var/lib/mysql{{ server_port }}/mysql.sock -e "GRANT ALL PRIVILEGES ON *.* TO '{{ cmp_galera_sst_user }}'@'localhost' IDENTIFIED BY '{{ cmp_galera_sst_password }}' WITH GRANT OPTION;"
+  mysql --no-defaults --socket=/var/lib/mysql{{ server_port }}/mysql.sock -e "GRANT ALL PRIVILEGES ON *.* TO '{{ cmp_galera_sst_user }}'@'%' IDENTIFIED BY '{{ cmp_galera_sst_password }}' WITH GRANT OPTION;"
+  mysql --no-defaults --socket=/var/lib/mysql{{ server_port }}/mysql.sock -e "FLUSH PRIVILEGES;"
+fi
+
+if [ "${STOP_MYSQL}" = true ]; then
+  systemctl stop {{ galera_mariadb_service_name }}{{ server_port }}
+fi
+
+# Create a marker file to ensure this script is not run again
+systemctl unset-environment MYSQLD_OPTS
+touch "/var/lib/mysql{{ server_port }}/opensd_default_secured"

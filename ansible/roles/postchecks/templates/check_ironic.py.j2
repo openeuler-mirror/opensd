@@ -1,0 +1,395 @@
+# -*- coding:utf-8 -*-
+import functools
+import getopt
+import ipaddress
+import json
+import os
+from oslo_concurrency import processutils
+import re
+import requests
+import sys
+
+
+def printf(checkinfo):
+    """打印所有检查结果."""
+
+    def print_msg(state, msg, project=None):
+        """打印信息"""
+        info = msg
+        if project:
+            info = "项目: {: ^30}| 检测结果: {: ^10} | {}".format(
+                project, state, msg)
+        if state == "Success":  # 打印成功日志(绿色)
+            print("\033[32m%s\033[0m" % info)
+        elif state == "Fail":  # 打印失败日志(红色)
+            print("\033[31m%s\033[0m" % info)
+        else:  # 打印警告日志(黄色)
+            print("\033[33m%s\033[0m" % info)
+
+    print_msg("Warning", "====打印检测结果")
+    for project, speficial in checkinfo.items():
+        for (_state, _info) in speficial:
+            print_msg(_state, _info, project)
+
+
+class Pxe:
+    def __init__(self, x86_kernel_md5=None, x86_ramdisk_md5=None,
+                 arm_kernel_md5=None, arm_ramdisk_md5=None,
+                 ipmis_to_check=None,
+                 dnsmasq_cfg_file="/etc/ironic-inspector/dnsmasq.conf"):
+        self.collect_info = {}
+        # Collect check result. An entry may be a dict with format
+        # {'entry': (success or fail, result)}
+        self.check_info = {}
+        self.dnsmasq_cfg = self.read_dnsmasq_cfg(dnsmasq_cfg_file)
+        self.pxe_bootfile_info = {
+            "arm_uefi": {
+                "kernel": {
+                    "pattern": r'linux +(?P<name>.*?) +',
+                    "md5": arm_kernel_md5
+                },
+                "ramdisk": {
+                    "pattern": r'initrd +(?P<name>.*?)\n',
+                    "md5": arm_ramdisk_md5
+                },
+                "pxe_cfg_name": "grub-arm64.cfg",
+                "pxe_bin": "grubaa64.efi",
+                "pxe_cfg_content": None},
+            "x64_uefi": {
+                "kernel": {
+                    "pattern": r'linuxefi +(?P<name>.*?) +',
+                    "md5": x86_kernel_md5
+                },
+                "ramdisk": {
+                    "pattern": r'initrdefi +(?P<name>.*?)\n',
+                    "md5": x86_ramdisk_md5
+                },
+                "pxe_cfg_name": "grub-x86_64.cfg",
+                "pxe_bin": "grubx64.efi",
+                "pxe_cfg_content": None},
+            "x64_bios": {
+                "kernel": {
+                    "pattern": r'kernel +(?P<name>.*?)\n',
+                    "md5": x86_kernel_md5
+                },
+                "ramdisk": {
+                    "pattern": r'initrd=(?P<name>.*?) +',
+                    "md5": x86_ramdisk_md5
+                },
+                "pxe_cfg_name": "pxelinux.cfg/default",
+                "pxe_bin": "pxelinux.0",
+                "pxe_cfg_content": None,
+                "kernel_md5": x86_kernel_md5,
+                "ramdisk_md5": x86_ramdisk_md5}
+        }
+        self.expected_kernel_pattern = {
+            'ipa-inspection-callback-url':
+                'ipa-inspection-callback-url=(?P<ip>.*?)/continue',
+            'ipa-inspection-collectors':
+                'ipa-inspection-collectors=default',
+            'ipa-collect-lldp':
+                'ipa-collect-lldp=1|True',
+            'BOOTIF':
+                'BOOTIF=\$net_default_mac',
+            'ipa-debug':
+                'ipa-debug=1|True'}
+        self.pxe_ifname = None
+        self.pxe_ip = None
+        self.pxe_vlan = None
+        self.provision_net = None
+        self.ipmis_to_check = ipmis_to_check
+
+    def update_result(self, project, state, msg):
+        """更新检测结果以及中间出现的异常情况。
+
+        检测结果会更新到self.check_info中。
+        :param project: 要检测的条目。
+        :param state: 检测结果状态，"Success" 或者 "Fail".
+        :param msg: 检测结果的具体信息。
+        """
+        info = self.check_info.setdefault(project, [])
+        info.append((state, msg))
+
+    def execute_command(self, cmd):
+        """执行shell命令。"""
+        update = functools.partial(self.update_result, "execute command")
+        try:
+            (out, err) = processutils.execute(cmd, shell=True)
+        except processutils.ProcessExecutionError as e:
+            update("Fail", "%s: %s" % (cmd, e))
+            return None
+        if err:
+            update("Fail", "%s: %s" % (cmd, err))
+            return None
+        return out.strip()
+
+    def readfile(self, path):
+        update = functools.partial(self.update_result, "read file")
+        try:
+            with open(path, "r") as f:
+                return f.read()
+        except Exception as e:
+            update("Fail", "%s: %s" % (path, e))
+
+    def read_dnsmasq_cfg(self, cfg_path):
+        """读取dnsmasq.conf文件内容，获取所需的配置项。"""
+
+        update = functools.partial(self.update_result, "read dnsmasq.conf")
+        # 我们暂时只收集dnsmasq.conf中'[interface', 'dhcp-range',
+        #  'tftp-boot', 'log-facility']这几个选项的内容.
+        cfg = {}
+        content = self.readfile(cfg_path)
+        if not content:
+            return None
+        for opt in ('interface', 'dhcp-range', 'tftp-root', 'log-facility'):
+            cfg[opt] = None
+            _opt = opt.replace('-', '_')
+            pattern = r'{opt}=(?P<{_opt}>.*?)\n'.format(opt=opt, _opt=_opt)
+            try:
+                cfg[opt] = re.search(pattern, content).group(_opt)
+            except AttributeError:
+                update("Fail", "配置文件中未发现配置项%s!" % opt)
+        return cfg
+
+    def read_pxe_cfg(self):
+        """读取pxe启动的引导配置文件(如grub.cfg)的内容。
+
+        读取后的文件内容会放到self.pxe_bootfile_info结构中。
+        """
+        update = functools.partial(self.update_result, "read pxe cfg")
+        tftp_root = self.dnsmasq_cfg.get('tftp-root')
+        if not tftp_root:
+            update("Fail", "dnsmasq.conf中未找到tftp-root配置项")
+            return
+        for pxe_type, pxe_info in self.pxe_bootfile_info.items():
+            # 检查pxe启动二进制文件是否存在。
+            pxe_bin_path = os.path.join(tftp_root, pxe_info.get('pxe_bin'))
+            if not os.path.isfile(pxe_bin_path):
+                update("Fail", "文件%s不存在" % pxe_bin_path )
+            pxe_cfg_path = os.path.join(tftp_root,
+                                        pxe_info.get('pxe_cfg_name'))
+            content = self.readfile(pxe_cfg_path)
+            if not content:
+                update("Fail", "%s未读取到内容" % pxe_cfg_path)
+            pxe_info["pxe_cfg_content"] = content
+
+    def get_pxe_interface_info(self):
+        """获取dnsmasq监听接口的名称/ip/vlan号"""
+        if not self.dnsmasq_cfg.get('interface'):
+            return
+        self.pxe_ifname = self.dnsmasq_cfg.get('interface')
+        get_ip_cmd = '''ip addr show %s |
+            awk '/inet /{print $2}' |head -n 1''' % self.pxe_ifname
+        self.pxe_ip = self.execute_command(get_ip_cmd)
+
+        get_vlan_num_cmd = '''cat /proc/net/vlan/config |
+            awk -F '|' '/%s/{print $2}' ''' % self.pxe_ifname
+        self.pxe_vlan = self.execute_command(get_vlan_num_cmd)
+
+    def get_provision_net_id(self, ironic_cfg='/etc/ironic/ironic.conf'):
+        """获取neutron里ironic provision网的id"""
+        get_vlan_cmd = '''
+            cat %s | awk -F '=' '/provisioning_network/{print $2}'
+            ''' % ironic_cfg
+        self.provision_net = self.execute_command(get_vlan_cmd)
+
+    def check_pxe_ip_in_dhcp_range(self):
+        """检查pxe网卡的ip地址是否合理。
+
+        检查pxe网卡的ip地址是否和dnsmasq指定的dhcp租约范围属于
+        同一子网且在该范围之外。
+        """
+        update = functools.partial(self.update_result, "check pxe ip")
+        if not self.pxe_ip or not self.dnsmasq_cfg.get('dhcp-range'):
+            update("Fail", "pxe网卡ip或dhcp-range至少有一个不存在")
+            return
+        drange = self.dnsmasq_cfg.get('dhcp-range')
+        try:
+            dhcp_min = ipaddress.IPv4Address(unicode(drange.split(',')[0]))
+            dhcp_max = ipaddress.IPv4Address(unicode(drange.split(',')[1]))
+        except IndexError:
+            update("Fail", "dnsmasq配置文件里dhcp-range参数格式不对")
+            return
+
+        pxe_ip = ipaddress.IPv4Interface(unicode(self.pxe_ip))
+        # 获取和self.pxe_ip在同一网段的所有ip地址
+        all_subnet_ip = list(pxe_ip.network.hosts())
+        dhcp_range_int = range(int(dhcp_min), int(dhcp_max))
+        ip_for_release = [ipaddress.IPv4Address(ip) for ip in dhcp_range_int]
+        # pxe网卡的ip地址不应该位于dhcp-range范围内。
+        if (dhcp_min in all_subnet_ip and dhcp_max in all_subnet_ip
+                and pxe_ip.ip in set(all_subnet_ip) - set(ip_for_release)):
+            update("Success", 'pxe网卡的ip地址设置合理')
+        else:
+            update("Fail", "pxe ip包含在dhcp-range范围内或不是同一子网")
+
+    def check_pxe_kernel_args(self):
+        """检查pxe配置文件的kernel参数是否完整。"""
+        update = functools.partial(self.update_result, "kernel arguments")
+        for pxe_type, pxe_info in self.pxe_bootfile_info.items():
+            content = pxe_info.get('pxe_cfg_content')
+            if not content:
+                continue
+            for name, pattern in self.expected_kernel_pattern.items():
+                # BOOTIF参数对x86_64位架构bios启动模式的server创建port无影响。
+                if name == "BOOTIF" and pxe_type == "x64_bios":
+                    continue
+                if not re.search(pattern, content):
+                    update("Fail", "%s架构参数%s不正确或不存在" % (pxe_type, name))
+                    continue
+                else:
+                    update("Success", "%s架构参数%s正确" % (pxe_type, name))
+                if not name == "ipa-inspection-callback-url":
+                    continue
+                # 获取ironic api的endpoint。
+                api_endpoint = re.search(pattern, content).group('ip')
+                # 检测ironic api是否可被ironic节点访问。
+                try:
+                    status = requests.get(api_endpoint)
+                except Exception as e:
+                    update("Fail", "%s架构: 连接ironic api失败: %s" % (pxe_type, e))
+                    continue
+
+                if status.status_code == 200:
+                    update("Success", "%s架构: 连接ironic api成功" % pxe_type)
+                else:
+                    update("Fail", "%s架构: 连接ironic api失败" % pxe_type)
+
+    def check_dns_process(self):
+        """检查dnsmasq进程是否存在且监听pxe网卡的ip。"""
+        update = functools.partial(self.update_result, "dns process")
+        output = self.execute_command('''ss -lantup | grep dnsmasq''')
+        if output and self.pxe_ip and self.pxe_ip.rstrip('/24') in output:
+            update("Success", "dnsmasq进程正常")
+        else:
+            update("Fail", "dnsmasq进程异常")
+
+    def check_images(self):
+        """检查kernel和ramdisk镜像是否存在以及md5值是否正确。"""
+        update = functools.partial(self.update_result, "ipa images")
+        tftp_root = self.dnsmasq_cfg.get('tftp-root')
+        if not tftp_root:
+            return
+        for pxe_type, pxe_info in self.pxe_bootfile_info.items():
+            content = pxe_info.get('pxe_cfg_content')
+            pxe_cfg = pxe_info.get('pxe_cfg_name')
+            for t in ('kernel', 'ramdisk'):
+                pattern = pxe_info[t]["pattern"]
+                expected_md5 = pxe_info[t]["md5"]
+                try:
+                    image_name = re.search(pattern, content).group('name')
+                    image_path = os.path.join(tftp_root, image_name)
+                    cmd = '''md5sum %s | awk '{print $1}' ''' % image_path
+                    actual_md5 = self.execute_command(cmd)
+                    if any([expected_md5, actual_md5]) is None:
+                        update("Fail", "%s架构%s: 未传入的待测md5值或"
+                                       "文件不存在" % (pxe_type, image_name))
+                        continue
+                    if expected_md5 != actual_md5:
+                        update("Fail", "%s架构%s:镜像md5不一致"
+                                       "" % (pxe_type, image_name))
+                    else:
+                        update("Success", "%s架构%s:镜像md5一致"
+                                          "" % (pxe_type, image_name))
+                except TypeError:
+                    update("Fail", '%s: 文件无内容或格式有误' % pxe_cfg)
+                except AttributeError:
+                    update("Fail", '%s: 缺少pxe镜像信息' % pxe_cfg)
+
+    def check_ipmi(self):
+        """检查ipmi地址是否可被本node访问。"""
+        update = functools.partial(self.update_result, "ipmi connection")
+        if not self.ipmis_to_check:
+            update("Fail", "未提供ipmi信息，暂不检测该项。")
+            return
+        for address in self.ipmis_to_check:
+            ret = self.execute_command('''ping %s -c 1''' % address)
+            if ret is not None:
+                update("Success", "%s可以ping通" % address)
+            else:
+                update("Fail", "%s无法ping通" % address)
+
+    def collect(self):
+        self.collect_info["pxe_ip"] = self.pxe_ip
+        self.collect_info["pxe_vlan"] = self.pxe_vlan
+        self.collect_info["provision_net"] = self.provision_net
+
+    def check(self):
+        self.read_pxe_cfg()
+        self.get_pxe_interface_info()
+        self.get_provision_net_id()
+        self.check_pxe_ip_in_dhcp_range()
+        self.check_pxe_kernel_args()
+        self.check_dns_process()
+        self.check_images()
+        self.check_ipmi()
+        self.collect()
+
+
+def usage():
+    print(
+        """
+python %s [args]
+    args: -k [x86_64架构kernel镜像的md5值]或者
+            --x86-kernel-md5 [x86_64架构kernel镜像的md5值]
+          -r [x86_64架构ramdisk镜像的md5值]或者
+            --x86-ramdisk-md5 [x86_64架构ramdisk镜像的md5值]
+          -l [arm64架构kernel镜像的md5值]或者
+            --arm-kernel-md5 [arm64架构kernel镜像的md5值]
+          -s [arm64架构ramdisk镜像的md5值]或者
+            --arm-ramdisk-md5 [arm64架构ramdisk镜像的md5值]
+          -i [ipmi地址1,ipmi地址2,ipmi地址3...]
+            --ipmi [ipmi地址1,ipmi地址2,ipmi地址3...]
+          -h 帮助选项""" % sys.argv[0])
+
+
+def main():
+    # x86架构kernel和ramdisk镜像的md5值。
+    x86_kernel_md5 = x86_ramdisk_md5 = None
+    # arm架构kernel和ramdisk镜像的md5值。
+    arm_kernel_md5 = arm_ramdisk_md5 = None
+    ipmi = []  # 要测试的ipmi地址的连通性。
+    print_out = False  # 是否直接打印。
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   '-k:-r:-l:-s:-i:-p-h',
+                                   ["x86-kernel-md5=",
+                                    "x86-ramdisk-md5=",
+                                    "arm-kernel-md5=",
+                                    "arm-ramdisk-md5=",
+                                    "ipmi=", "print-out","help"])
+
+        for opt_name, opt_val in opts:
+            if opt_name in ('-k', '--x86-kernel-md5'):
+                x86_kernel_md5 = opt_val
+            elif opt_name in ('-r', '--x86-ramdisk-md5'):
+                x86_ramdisk_md5 = opt_val
+            if opt_name in ('-l', '--arm-kernel-md5'):
+                arm_kernel_md5 = opt_val
+            elif opt_name in ('-s', '--arm-ramdisk-md5'):
+                arm_ramdisk_md5 = opt_val
+            elif opt_name in ('-i', '--ipmi'):
+                ipmi = opt_val.split(',')
+            elif opt_name in ('-p', '--print-out'):
+                print_out = True
+            elif opt_name in ('-h', '--help'):
+                usage()
+                exit(0)
+    except getopt.GetoptError:
+        usage()
+        exit(1)
+
+    pxe = Pxe(x86_kernel_md5=x86_kernel_md5, x86_ramdisk_md5=x86_ramdisk_md5,
+              arm_kernel_md5=arm_kernel_md5, arm_ramdisk_md5=arm_ramdisk_md5,
+              ipmis_to_check=ipmi)
+    pxe.check()
+    if print_out:
+        printf(pxe.check_info)
+    else:
+        print(json.dumps({"check": pxe.check_info,
+                          "collect": pxe.collect_info}))
+
+
+if __name__ == "__main__":
+    main()

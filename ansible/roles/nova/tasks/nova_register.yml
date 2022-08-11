@@ -1,0 +1,103 @@
+---
+- name: Setup the service
+  block:
+    - name: Add services to the keystone service catalog
+      os_keystone_service:
+        cloud: default
+        state: present
+        name: "{{ item.name }}"
+        service_type: "{{ item.service_type }}"
+        description: "{{ item.description }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      with_items:
+        - name: "{{ nova_service_name }}"
+          service_type: "{{ nova_service_type }}"
+          description: "{{ nova_service_description }}"
+        - name: "{{ nova_placement_service_name }}"
+          service_type: "{{ nova_placement_service_type }}"
+          description: "{{ nova_placement_service_description }}"
+
+    - name: Add service users
+      os_user:
+        cloud: default
+        state: present
+        name: "{{ item.name }}"
+        password: "{{ item.password }}"
+        domain: default
+        default_project: "{{ item.default_project }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+      with_items:
+        - name: "{{ nova_service_user_name }}"
+          password: "{{ nova_service_password }}"
+          default_project: "{{ nova_service_project_name }}"
+        - name: "{{ nova_placement_service_username }}"
+          password: "{{ nova_placement_service_password }}"
+          default_project: "{{ nova_placement_service_project_name }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Add service users to admin roles
+      os_user_role:
+        cloud: default
+        state: present
+        user: "{{ item.user }}"
+        role: "{{ item.role }}"
+        project: "{{ item.project }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      with_items:
+        - user: "{{ nova_service_user_name }}"
+          role: "{{ nova_service_role_name }}"
+          project: "{{ nova_service_project_name }}"
+        - user: "{{ nova_placement_service_username }}"
+          role: "{{ nova_placement_service_role_name }}"
+          project: "{{ nova_placement_service_project_name }}"
+
+    - name: Add endpoints to keystone endpoint catalog
+      os_keystone_endpoint:
+        cloud: default
+        state: present
+        service: "{{ item.service }}"
+        endpoint_interface: "{{ item.interface }}"
+        url: "{{ item.url }}"
+        region: "{{ nova_service_region }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      with_items:
+        - service: "{{ nova_service_name }}"
+          interface: "public"
+          url: "{{ nova_service_publicurl }}"
+        - service: "{{ nova_service_name }}"
+          interface: "internal"
+          url: "{{ nova_service_internalurl }}"
+        - service: "{{ nova_service_name }}"
+          interface: "admin"
+          url: "{{ nova_service_adminurl }}"
+        - service: "{{ nova_placement_service_name }}"
+          interface: "public"
+          url: "{{ nova_placement_service_publicurl }}"
+        - service: "{{ nova_placement_service_name }}"
+          interface: "internal"
+          url: "{{ nova_placement_service_internalurl }}"
+        - service: "{{ nova_placement_service_name }}"
+          interface: "admin"
+          url: "{{ nova_placement_service_adminurl }}"

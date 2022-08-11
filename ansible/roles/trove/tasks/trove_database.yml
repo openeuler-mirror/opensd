@@ -1,0 +1,68 @@
+---
+- name: Setup the service
+  block:
+    - name: Add service to the keystone service catalog
+      os_keystone_service:
+        cloud: default
+        state: present
+        name: "{{ trove_service_name }}"
+        service_type: "{{ trove_service_type }}"
+        description: "{{ trove_service_description }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add service user
+      os_user:
+        cloud: default
+        state: present
+        name: "{{ trove_service_user_name }}"
+        password: "{{ trove_service_password }}"
+        domain: default
+        default_project: "{{ trove_service_project_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+
+    - name: Add service user to admin role
+      os_user_role:
+        cloud: default
+        state: present
+        user: "{{ trove_service_user_name }}"
+        role: "{{ trove_role_name }}"
+        project: "{{ trove_service_project_name }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+
+    - name: Add endpoints to keystone endpoint catalog
+      os_keystone_endpoint:
+        cloud: default
+        state: present
+        service: "{{ trove_service_name }}"
+        endpoint_interface: "{{ item.interface }}"
+        url: "{{ item.url }}"
+        region: "{{ trove_service_region }}"
+        endpoint_type: admin
+        verify: false
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      with_items:
+        - interface: "public"
+          url: "{{ trove_service_publicurl }}"
+        - interface: "internal"
+          url: "{{ trove_service_internalurl }}"
+        - interface: "admin"
+          url: "{{ trove_service_adminurl }}"

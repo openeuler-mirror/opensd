@@ -1,0 +1,8 @@
+---
+- hosts: compute
+  vars:
+    hostname: "{{ inventory_hostname.split('.') }}"
+  tasks:
+  - debug:
+      msg: "{{ hostname[:2]|join('.') }}"
+  run_once: true

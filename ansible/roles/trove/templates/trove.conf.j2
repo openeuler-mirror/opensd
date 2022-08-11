@@ -1,0 +1,78 @@
+[DEFAULT]
+debug = True
+log_dir = /var/log/trove
+trove_auth_url = {{ keystone_auth_url }}
+nova_compute_url = http://{{ opensd_vip_address }}:{{ nova_api_port }}/v2
+cinder_url = http://{{ opensd_vip_address }}:{{ cinder_service_port }}/v3
+bind_host = {{ trove_management_address }}
+rpc_backend = rabbit
+transport_url = {{ rpc_transport_url }}
+auth_strategy = keystone
+add_addresses = True
+neutron_service_type=network
+network_label_regex = .*
+api_paste_config = /etc/trove/api-paste.ini
+taskmanager_queue = taskmanager
+network_driver = trove.network.neutron.NeutronDriver
+control_exchange = trove
+default_neutron_networks = {{ trove_default_neutron_networks }}
+max_accepted_volume_size = 10000
+max_instances_per_tenant = -1
+max_volumes_per_tenant = -1
+max_backups_per_tenant = -1
+waltz_reserve_ipsec= 
+
+[database]
+connection = mysql+pymysql://{{ trove_database_user }}:{{ trove_database_password }}@{{ database_address }}:{{ database_port }}/{{ trove_database_name }}
+
+[oslo_messaging_rabbit]
+amqp_durable_queues = True
+transport_url = {{ rpc_transport_url }}
+
+
+[keystone_authtoken]
+auth_type = {{ trove_keystone_auth_plugin }}
+auth_url = {{ keystone_auth_url }}
+www_authenticate_uri = {{ keystone_auth_url }}
+project_domain_name = {{ trove_service_project_domain_id }}
+user_domain_name = {{ trove_service_user_domain_id }}
+project_name = {{ trove_service_project_name }}
+username = {{ trove_service_user_name }}
+password = {{ trove_service_password }}
+
+[redis]
+tcp_ports = 6379, 16379
+volume_support = True
+#device_path = /dev/vdb
+
+[mongodb]
+tcp_ports = 27017
+volume_support = True
+#device_path = /dev/vdb
+num_config_servers_per_cluster = 1
+num_query_routers_per_cluster = 1
+api_strategy = trove.common.strategies.cluster.experimental.mongodb.api.MongoDbAPIStrategy
+
+[oslo_messaging_notifications]
+driver = messagingv2
+transport_url = {{ rpc_transport_url }}
+topics = dbnotifications
+
+[s3_storage]
+method = S3
+endpoint_url = {{ s3_endpoint_url }}
+access_key = {{ s3_access_key }}
+secret_key = {{ s3_secret_key }}
+os_region_name = RegionOne
+
+
+[cetus]
+volume_size = 10
+volume_support = True
+tcp_ports = 3306, 59599
+
+[predixy]
+volume_size = 10
+volume_support = True
+tcp_ports = 22, 6379, 59559
+icmp = True

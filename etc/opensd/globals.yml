@@ -1,0 +1,181 @@
+---
+#######################
+# Network & Base options
+#######################
+# Network intreface configuration
+network_interface:
+neutron_external_interface:
+cidr_netmask:
+
+# Vip address
+opensd_vip_address:
+
+# Cell vip address
+cell1_vip_address:
+cell2_vip_address:
+
+# external domain name
+external_fqdn: ""
+
+# external ntp server address
+external_ntp_servers: []
+
+# Yum repo host ip address
+yumrepo_host:
+yumrepo_port:
+# The enviroment you want to depoly, valid options are [ test, production ]
+# This parameter will decision which yum repo will be used
+enviroment:
+manage_yum_repo: "yes"
+upgrade_all_packages: "yes"
+
+# Miner enabled
+enable_miner: "no"
+
+# Chrony enabled
+enable_chrony: "yes"
+
+# deploy mariadb for private cloud
+enable_pri_mariadb: "no"
+
+# Enable `/etc/hosts` file modify, valid options are [yes, no]
+# Set to no for the production environment, because the hosts file maintained by operators,
+# the develop/testing environment is set to yes, for the hosts file maintained by deployers.
+enable_hosts_file_modify: "no"
+
+#######################
+# Available zone options
+#######################
+# Ceph monitor host,must be added SSH public key authentication
+# when reserve_vcpu_based_on_numa set to "yes", compute node set vcpu_pin_set depend on numa nodes.
+az_cephmon_compose:
+  - availability_zone:
+    ceph_mon_host:
+    reserve_vcpu_based_on_numa:
+
+#######################
+# Nova options
+#######################
+nova_reserved_host_memory_mb: 2048
+# Cell enabled
+enable_cells: "yes"
+# Monitor agent must be running in vm, set to True;
+# otherwise, set to False
+nova_enable_vm_monitor: "True"
+# If monitor_is_fatal is set to True & monotor server is unhealthy,
+# instance operation will be failed.
+monitor_is_fatal: "False"
+# If monitor_auto_disable_service is set to True & monotor server is unhealthy,
+# nova-compute service will be set to disabled.
+monitor_auto_disable_service: "False"
+# When have GPU servers, make this to "True", otherwise "False".
+support_gpu: "True"
+
+#######################
+# Neutron options
+#######################
+# Neutron metering agent
+monitor_ip:
+enable_meter_full_eip: True
+enable_meter_port_forwarding: True
+enable_meter_ecs_ipv6: True
+enable_meter: True
+is_sdn_arch: False
+# neutron vxlan and fwaas Configuration
+enable_vxlan_network_type: True
+enable_neutron_fwaas: True
+# Neutron provider
+neutron_provider_networks:
+  network_types: "{{ 'vxlan' if enable_vxlan_network_type else 'vlan' }}"
+  network_vlan_ranges: "default:xxx:xxx"
+  network_mappings: "default:br-provider"
+  network_interface: "{{ neutron_external_interface }}"
+  network_vxlan_ranges: "xxxxxx:xxxxxx"
+
+# sdn controller info
+enable_sdn_controller: True
+sdn_controller_ip_address: ""
+sdn_controller_username: ""
+sdn_controller_password: ""
+
+#######################
+# Dimsagent options
+#######################
+enable_dimsagent: "no"
+# Address and domain name for s2
+s3_address_domain_pair:
+  - host_ip:
+    host_name:
+
+#######################
+# Trove options
+#######################
+enable_trove: "no"
+#default network
+trove_default_neutron_networks:
+#s3 setup
+s3_endpoint_host_ip:
+s3_endpoint_host_name:
+s3_endpoint_url:
+s3_access_key:
+s3_secret_key:
+
+
+
+#######################
+# Ironic options
+#######################
+enable_ironic: "no"
+ironic_neutron_provisioning_network_uuid:
+# UUID for cleaning network in neutron, now same as ironic_neutron_provisioning_network_uuid.
+ironic_neutron_cleaning_network_uuid: "{{ ironic_neutron_provisioning_network_uuid }}"
+ironic_dnsmasq_interface:
+ironic_dnsmasq_dhcp_range:
+ironic_tftp_server_address:
+
+neutron_ml2_conf_genericswitch:
+  genericswitch:xxxxxxx:
+    device_type:
+    ngs_mac_address:
+    switch_ports:
+    ip:
+    username:
+    password:
+    ngs_port_default_vlan:
+
+# Parameters for Post Checks
+## ipmi_address待检测连通性的ipmi地址(一般是裸机node的ipmi地址)
+ipmi_addresses:
+
+## 待检测的多个ironic节点ip地址。
+ironic_hosts:
+
+## 待检测ironic-python-agent x86架构kernel镜像的md5sum值
+x86_kernel_md5: 
+
+## 待检测ironic-python-agent x86架构ramdisk镜像的md5sum值
+x86_ramdisk_md5: 
+
+## 待检测ironic-python-agent arm架构kernel镜像的md5sum值
+arm_kernel_md5: 
+
+## 待检测ironic-python-agent arm架构ramdisk镜像的md5sum值
+arm_ramdisk_md5: 
+
+
+#######################
+# Package options
+#######################
+# Package state setting
+haproxy_package_state: "present"
+mariadb_package_state: "present"
+rabbitmq_package_state: "present"
+memcached_package_state: "present"
+ceph_client_package_state: "present"
+keystone_package_state: "present"
+glance_package_state: "present"
+cinder_package_state: "present"
+nova_package_state: "present"
+neutron_package_state: "present"
+miner_package_state: "present"
+trove_package_state: "latest"

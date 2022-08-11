@@ -1,0 +1,9 @@
+---
+- name: Wait for the nova-compute service to initialize
+  command: "/usr/bin/openstack --os-cloud default compute service list --service nova-compute --format value --column Host"
+  changed_when: false
+  register: _compute_host_list
+  retries: 10
+  delay: 5
+  until: "item in _compute_host_list.stdout_lines"
+  with_items: "{{ groups['nova-compute'] | map('extract', hostvars, 'ansible_fqdn') | list }}"

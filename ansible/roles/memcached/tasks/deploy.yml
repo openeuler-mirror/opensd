@@ -1,0 +1,8 @@
+---
+# Copyright 2020 weimeng <weim6@chinaunicom.cn>
+- include_tasks: memcached_install.yml
+
+- include_tasks: memcached_config.yml
+
+- name: Flush handlers
+  meta: flush_handlers

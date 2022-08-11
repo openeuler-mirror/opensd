@@ -1,0 +1,417 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
+import functools
+import ipaddress
+import json
+from networking_generic_switch import config as gsw_conf
+from networking_generic_switch.devices.netmiko_devices import NetmikoSwitch
+from networking_generic_switch.devices.netmiko_devices.huawei_vrpv8 import Huawei as Huawei_vrpv8
+from networking_generic_switch.devices.netmiko_devices.h3c import H3C
+from networking_generic_switch.devices.netmiko_devices.ruijie import Ruijie
+import os
+from oslo_concurrency import processutils
+from oslo_config import cfg
+import random
+import re
+import string
+import sys
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+OS_PROJECT_NAME = "{{ keystone_admin_tenant_name }}"
+OS_USERNAME = "{{ keystone_admin_user_name }}"
+OS_PASSWORD = "{{ keystone_admin_password }}"
+OS_AUTH_URL = "http://{{ opensd_vip_address }}:{{ keystone_service_port }}"
+
+def print_msg(state, msg, project=None):
+    """打印信息"""
+    info = msg
+    if project:
+        info = "项目: {: ^30}| 检测结果: {: ^10} | {}".format(
+            project, state, msg)
+    if state == "Success":  # 打印成功日志(绿色)
+        print("\033[32m%s\033[0m" % info)
+    elif state == "Fail":  # 打印失败日志(红色)
+        print("\033[31m%s\033[0m" % info)
+    else:  # 打印警告日志(黄色)
+        print("\033[33m%s\033[0m" % info)
+
+
+def load_cfg(cfgs):
+    def register_conf():
+        opts = [
+            cfg.MultiStrOpt('switch_ports',
+                            default=[],
+                            help='Switch ports info. Format: '
+                                 '{"2c:ab:00:0f:0d:f1":'
+                                 ' "10GE2/0/5,10GE2/0/6,10GE1/0/5,10GE1/0/6",'
+                                 ' "94:3b:b0:b3:cb:a4":'
+                                 ' "Ten-GigabitEthernet1/0/12"}'),
+            cfg.ListOpt('ipmi_addresses',
+                        default=[],
+                        help='Ipmi address to check for connection'),
+            cfg.ListOpt('ironic_hosts',
+                        default=[],
+                        help='Ironic node ip to connect fro checking.'),
+            cfg.StrOpt('x86_kernel_md5',
+                       default="",
+                       help='Md5sum of ironic python agent kernel image.'),
+            cfg.StrOpt('x86_ramdisk_md5',
+                       default="",
+                       help='Md5sum of ironic python agent ramdisk image.'),
+            cfg.StrOpt('arm_kernel_md5',
+                       default="",
+                       help='Md5sum of ironic python agent kernel image.'),
+            cfg.StrOpt('arm_ramdisk_md5',
+                       default="",
+                       help='Md5sum of ironic python agent ramdisk image.')
+        ]
+        CF = cfg.CONF
+        CF.register_opts(opts)
+        return CF
+
+    CONF = register_conf()
+    CONF(default_config_files=cfgs)
+
+
+def execute(cmd):
+    _print = functools.partial(print_msg, project="execute_command")
+    try:
+        (out, err) = processutils.execute(cmd, shell=True)
+        if err:
+            _print("Fail", "Command %s executed but met"
+                           " error in stderr: %s" % (cmd, err))
+        return out
+    except processutils.ProcessExecutionError as e:
+        _print("Fail", "Execute command %s failed: %s" % (cmd, e))
+
+
+class Extended_Switch(NetmikoSwitch):
+    ACCESS_VLAN_PATTERN = None
+    HAVE_VLAN_IP_PATTERN = None
+    CONNECT_NORMAL_PATTERN = None
+    QUERY_VLAN_IP = ()
+    SET_VLAN_IP = ()
+    DEL_VLAN_IP = ()
+    CONNECT_REMOTE = ()
+
+    def get_aggregate_vlan_ip(self, vlan):
+        raw_output = self.send_commands_to_device(
+            self._format_commands(self.QUERY_VLAN_IP, vlan=vlan)
+        )
+        if re.search(self.HAVE_VLAN_IP_PATTERN % vlan, raw_output):
+            return True
+        return False
+
+    def set_aggregate_vlan_ip(self, vlan, ip, mask):
+        self.send_commands_to_device(
+            self._format_commands(self.SET_VLAN_IP, vlan=vlan,
+                                  ip=ip, mask=mask)
+        )
+
+    def del_aggregate_vlan_ip(self, vlan, ip, mask):
+        self.send_commands_to_device(
+            self._format_commands(self.DEL_VLAN_IP, vlan=vlan,
+                                  ip=ip, mask=mask)
+        )
+
+    def connect_normal(self, remote_ip):
+        raw_output = self.send_commands_to_device(
+            self._format_commands(self.CONNECT_REMOTE, remote=remote_ip)
+        )
+        if re.search(self.CONNECT_NORMAL_PATTERN, raw_output):
+            return True
+        return False
+
+
+class Rich_huawei_vrpv8(Huawei_vrpv8, Extended_Switch):
+    ACCESS_VLAN_PATTERN = "port default vlan %s"
+    HAVE_VLAN_IP_PATTERN = "Vlanif%s.*\d+(\.\d+){3}/\d+"
+    CONNECT_NORMAL_PATTERN = "ttl=64"
+    QUERY_VLAN_IP = ("display ip interface brief",)
+    SET_VLAN_IP = ("interface Vlanif {vlan}",
+                   "ip address {ip} {mask}",
+                   "commit")
+    DEL_VLAN_IP = ("interface Vlanif {vlan}",
+                   "undo ip address {ip} {mask}",
+                   "commit")
+    CONNECT_REMOTE = ("ping {remote}",)
+
+
+class Rich_h3c(H3C, Extended_Switch):
+    ACCESS_VLAN_PATTERN = "port access vlan %s"
+    HAVE_VLAN_IP_PATTERN = "Vlan%s.*\d+(\.\d+){3}"
+    CONNECT_NORMAL_PATTERN = "ttl=64"
+    QUERY_VLAN_IP = ("display ip interface brief",)
+    SET_VLAN_IP = ("interface vlan-interface {vlan}",
+                   "ip address {ip} {mask}")
+    DEL_VLAN_IP = ("interface vlan-interface {vlan}",
+                   "undo ip address {ip} {mask}")
+    CONNECT_REMOTE = ("ping {remote}",)
+
+
+class Rich_ruijie(Ruijie, Extended_Switch):
+    # TODO: Fullfill this class when we have a ruijie switch.
+    pass
+
+
+class IronicHost:
+    def __init__(self, hostip, port=22, user='root'):
+        self.ssh_ip = hostip  # ssh连接Ironic主机的ip地址
+        self.ssh_port = port  # ssh连接Ironic主机的端口
+        self.ssh_user = user  # ssh连接Ironic主机的用户名
+        self.pxe_ip = None  # ironic主机的pxe ip地址对象
+        self.pxe_network = None # ironic主机的pxe ip地址所处的子网对象
+        self.pxe_netmask = None  # ironic主机pxe ip的子网掩码
+        self.provision_net = None  # ironic主机ironic服务配置文件的provision网id
+        self.pxe_vlan = None  # ironic主机pxe ip的vlan号
+        self.check_info = {}
+        self.collect_info = {}
+
+    def check_remote(self, src='/tmp/check_ironic.py'):
+        """ironic节点上远程执行检查脚本"""
+        #src = os.path.basename(src)
+        suffix = ''.join(random.sample(string.ascii_letters, 5))
+        dest = os.path.join('/tmp/', src + suffix)
+        scp_cmd = 'scp {src} {host}:{dest}'.format(
+            src=src, host=self.ssh_ip, dest=dest)
+
+        check_cmd = 'ssh %s python %s' % (self.ssh_ip, dest)
+        if cfg.CONF.x86_kernel_md5:
+            check_cmd += ' -k %s' % cfg.CONF.x86_kernel_md5
+        if cfg.CONF.x86_kernel_md5:
+            check_cmd += ' -r %s' % cfg.CONF.x86_ramdisk_md5
+        if cfg.CONF.arm_kernel_md5:
+            check_cmd += ' -l %s' % cfg.CONF.arm_kernel_md5
+        if cfg.CONF.arm_ramdisk_md5:
+            check_cmd += ' -s %s' % cfg.CONF.arm_ramdisk_md5
+        if cfg.CONF.ipmi_addresses:
+            check_cmd += ' -i %s' % ','.join(cfg.CONF.ipmi_addresses)
+
+        del_cmd = 'ssh {host} rm -rf {dest}'.format(
+            host=self.ssh_ip, dest=dest)
+        execute(scp_cmd)
+        retinfo = json.loads(execute(check_cmd))
+        execute(del_cmd)
+        self.check_info = retinfo.get("check")
+        self.collect_info = retinfo.get("collect")
+
+        full_pxe_ip = self.collect_info.get("pxe_ip")
+        if full_pxe_ip:
+            self.pxe_ip = ipaddress.IPv4Interface(unicode(full_pxe_ip))
+            self.pxe_network = self.pxe_ip.network
+            self.pxe_netmask = self.pxe_network.netmask
+        self.provision_net = self.collect_info.get("provision_net")
+        self.pxe_vlan = self.collect_info.get("pxe_vlan")
+
+
+class Check:
+    def __init__(self):
+        self.hosts = [IronicHost(h) for h in cfg.CONF.ironic_hosts]
+        self.specific_vlan = None  # 我们要设置的交换机的默认vlan。
+        self.switches_mapping = {
+            "netmiko_huawei_vrpv8": Rich_huawei_vrpv8,
+            "netmiko_h3c": Rich_h3c
+        }
+        self.switches = {}
+        self.switch_ports = self.set_switch_ports_mapping()
+        self.switch_pxe_ip = None
+        self.switch_pxe_mask = None
+
+    def get_switch_driver(self):
+        """基于neutron的plugin.ini.加载generic交换机驱动"""
+        gsw_devices = gsw_conf.get_devices()
+        for switch_key, device_cfg in gsw_devices.items():
+            device_type = device_cfg.get("device_type")
+            switch_class = self.switches_mapping.get(device_type)
+            if not switch_class:
+                print_msg("Fail", "No suitable generic switch"
+                                  " driver for %s" % device_type)
+                continue
+            self.switches[switch_key] = switch_class(device_cfg)
+
+    def check_switches_default_vlan(self):
+        """判断plugin.ini文件里所有交换机的默认vlan是否相同。"""
+        _print = functools.partial(print_msg,
+                                   project="check switch default vlan")
+        switch_vlan = [switch.ngs_config.get("ngs_port_default_vlan")
+                       for switch in self.switches.values()]
+        if len(set(switch_vlan)) != 1:
+            _print("Fail", "plugin.ini中交换机默认vlan配置存在问题")
+            return
+        self.specific_vlan = switch_vlan[0]
+        _print("Success", "plugin.ini中所有交换机的默认vlan相同。")
+
+    def check_hosts(self):
+        """检查所有ironic host上的配置"""
+        for host in self.hosts:
+            host.check_remote()
+
+    def compare_hosts_vlan(self):
+        """
+        比较plugin.ini的交换机默认vlan/ironic host上的
+        pxe vlan/neutron provision网的vlan是否一致。
+        """
+        _print = functools.partial(print_msg, project="compare hosts vlan")
+        if not self.specific_vlan:
+            _print("Fail", "由于neutron的plugin.ini默认vlan配置有问题，"
+                           "停止和ironic节点的pxe网络vlan比较。")
+            return
+        for host in self.hosts:
+            get_neutron_vlan = '''openstack network show %s |
+             awk '/segmentation_id/{print $4}' ''' % host.provision_net
+            pxe_vlan = host.pxe_vlan
+            provision_vlan = execute(get_neutron_vlan)
+            if (self.specific_vlan == pxe_vlan and
+                    pxe_vlan == provision_vlan.strip()):
+                _print("Success", "Host %s:provision网vlan/pxe网络vlan/交换"
+                                  "机默认vlan完全一致" % host.ssh_ip)
+            else:
+                _print("Fail", "Host %s:provision网vlan/pxe网络vlan/交换机"
+                               "默认vlan不一致" % host.ssh_ip)
+
+    @staticmethod
+    def print_host_output(host):
+        """打印ironic hosts上的所有检查结果.
+
+        :param host: IronicHost实例。
+        """
+        print_msg("Warning", "\n====打印Ironic主机%s的检测结果" % host.ssh_ip)
+        for project, speficial in host.check_info.items():
+            for (state, info) in speficial:
+                print_msg(state, info, project)
+
+    @staticmethod
+    def set_switch_ports_mapping():
+        """根据plugin.ini文件获取switch和待检测ports的对应关系"""
+        switch_ports = {}
+        for sp in cfg.CONF.switch_ports:
+            for switch, ports in json.loads(sp).items():
+                switch_ports[switch] = ports.split(",")
+        return switch_ports
+
+    def check_switch_ports(self, switch, ports):
+        """检查ports是否在交换机上
+
+        :param switch: 一个加载了驱动的交换机实例
+        :param ports: 一个包含了一些待测port的交换机列表。
+        """
+        _print = functools.partial(print_msg, project="check switch ports")
+        for port in ports:
+            raw_output = switch.get_aggregateport(port)
+            pattern = switch.ACCESS_VLAN_PATTERN % self.specific_vlan
+            if not re.search(pattern, raw_output):
+                _print("Fail", "Port %s 不在交换机%s的默认access vlan"
+                               "中." % (port, switch.config["ip"]))
+            else:
+                _print("Success", "Port %s 在交换机%s的默认access vlan"
+                                  "中." % (port, switch.config["ip"]))
+
+    def get_available_pxe_ip_for_switch(self):
+        """用于获取一个ironic节点pxe网络的可用ip，用以配置在交换机上"""
+        if any([host.pxe_ip for host in self.hosts]) is None:
+            return "Fail", "一个或多个ironic主机未发现pxe ip，请检查."
+        pxe_nets = [host.pxe_network for host in self.hosts]
+        if len(set(pxe_nets)) != 1:
+            return "Fail", "不同ironic host的pxe网络地址不同"
+        pxe_net = pxe_nets[0]
+        ip_used = [host.pxe_ip.ip for host in self.hosts]
+
+        for ip in pxe_net.hosts():
+            if ip not in ip_used:
+                self.switch_pxe_ip = ip
+                self.switch_pxe_mask = str(pxe_net.netmask)
+                return "Success", "找到了可以配置在交换机上的ip和掩码"
+
+    def set_switchip_and_test_connection(self, switch, switch_title):
+        msgs = []
+        if switch.get_aggregate_vlan_ip(self.specific_vlan):
+            msg = ("交换机{sname}的vlan{id}接口已有ip，暂不检测连通性"
+                   ).format(sname=switch_title, id=self.specific_vlan)
+            msgs.append(("Warning", msg))
+            return msgs
+        switch.set_aggregate_vlan_ip(self.specific_vlan,
+                                     self.switch_pxe_ip,
+                                     self.switch_pxe_mask)
+        for host in self.hosts:
+            if not host.pxe_ip:
+                msgs.append(("Fail",
+                            ("主机{hname}上未发现pxe ip,停止交换机{sname}"
+                             "对主机{hname}的连通性检测").format(
+                                hname=host.ssh_ip,
+                                sname=switch_title
+                            )))
+                continue
+            pxe_ip = str(host.pxe_ip.ip)
+            if switch.connect_normal(pxe_ip):
+                msg = ("交换机{sname}默认vlan和host {hname}pxe网络相通"
+                       ).format(sname=switch_title, hname=host.ssh_ip)
+                msgs.append(("Success", msg))
+            else:
+                msg = ("交换机{sname}默认vlan和host {hname}pxe网络不通"
+                       ).format(sname=switch_title, hname=host.ssh_ip)
+                msgs.append(("Fail", msg))
+        switch.del_aggregate_vlan_ip(self.specific_vlan,
+                                     self.switch_pxe_ip,
+                                     self.switch_pxe_mask)
+        return msgs
+
+    def check_switch_connection(self):
+        """
+        检查交换机和ironic节点的pxe ip是否相通
+        以及裸机在交换机的port上是否处于默认vlan
+        """
+        print_msg("Warning", "\n====打印交换机和ironic主机上的连通性检查")
+        _print = functools.partial(print_msg, project="check switch connect")
+        if not self.specific_vlan:
+            _print("Fail", "由于neutron的plugin.ini默认vlan配置有问题，停止"
+                           "检查交换机上的port vlan")
+            return
+        state, info = self.get_available_pxe_ip_for_switch()
+        _print(state, info)
+        for name, switch in self.switches.items():
+            title = "%s(%s)" % (switch.config["ip"],
+                                switch.ngs_config.get("ngs_mac_address"))
+            print_msg("Warning",
+                      "========打印交换机%s的连接结果" % title)
+            for s_clue, ports in self.switch_ports.items():
+                if s_clue in (switch.ngs_config.get("ngs_mac_address"),
+                              switch.config["ip"]):
+                    self.check_switch_ports(switch, ports)
+            if not (self.switch_pxe_ip and self.switch_pxe_mask):
+                _print("Fail", "未能找到可以配置在交换机上ip或掩码!")
+                continue
+            msgs = self.set_switchip_and_test_connection(switch, title)
+            for msg in msgs:
+                _print(msg[0], msg[1])
+    def set_os_openrc(self):
+        os.environ['OS_PROJECT_DOMAIN_NAME'] = "Default"
+        os.environ['OS_USER_DOMAIN_NAME'] = "Default"
+        os.environ['OS_PROJECT_NAME'] = OS_PROJECT_NAME
+        os.environ['OS_USERNAME'] = OS_USERNAME
+        os.environ['OS_PASSWORD'] = OS_PASSWORD
+        os.environ['OS_AUTH_URL'] = OS_AUTH_URL
+        os.environ['OS_IDENTITY_API_VERSION'] = "3"
+        os.environ['OS_IMAGE_API_VERSION'] = "2"
+
+    def run(self):
+        self.set_os_openrc()
+        self.check_hosts()
+        self.get_switch_driver()
+        self.check_switches_default_vlan()
+        self.compare_hosts_vlan()
+        for host in self.hosts:
+            self.print_host_output(host)
+        self.check_switch_connection()
+
+
+def main():
+    load_cfg(['/etc/neutron/plugin.ini', '/tmp/check_info.cfg'])
+    check = Check()
+    check.run()
+
+
+if __name__ == "__main__":
+    main()
