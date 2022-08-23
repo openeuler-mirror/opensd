@@ -15,7 +15,7 @@
 # This module creates a list of cron intervals for a node in a group of nodes
 # to ensure each node runs a cron in round robbin style.
 
-from __future__ import print_function
+
 import argparse
 import json
 import sys

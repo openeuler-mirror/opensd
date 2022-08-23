@@ -3,7 +3,7 @@
 
 import copy
 import re
-import commands
+import subprocess
 import os
 
 from oslo_log import log as logging
@@ -71,7 +71,7 @@ class PciPhyPassTroughDriver(object):
     def _get_pid_vid_by_name(self):
         try:
             cmd = 'lspci -nn'
-            (status, outputline) = commands.getstatusoutput(cmd)
+            (status, outputline) = subprocess.getstatusoutput(cmd)
             if 0 != status:
                 raise Exception(str(outputline))
 
@@ -100,7 +100,7 @@ class PciPhyPassTroughDriver(object):
             self._load_pci_dev()
 
             cmd = 'lspci -nn'
-            (status, outputline) = commands.getstatusoutput(cmd)
+            (status, outputline) = subprocess.getstatusoutput(cmd)
             if 0 != status:
                 raise Exception(str(outputline))
 
@@ -197,7 +197,7 @@ class PciPhyPassTroughDriver(object):
             else:
                 cmd = 'grub2-mkconfig -o /boot/grub2/grub.cfg'
 
-            (status, output) = commands.getstatusoutput(cmd)
+            (status, output) = subprocess.getstatusoutput(cmd)
             if 0 != status:
                 raise Exception(str(output))
             return True
@@ -251,7 +251,7 @@ class PciPhyPassTroughDriver(object):
     def _rebuild_initraft(self):
 
         try:
-            (status, output) = commands.getstatusoutput('uname -r')
+            (status, output) = subprocess.getstatusoutput('uname -r')
             if 0 != status:
                 raise Exception(str(status))
 
@@ -261,22 +261,22 @@ class PciPhyPassTroughDriver(object):
                 os.remove(back_path)
             
             cmd = "cp" + "  " + original_path + " " + back_path 
-            (status, output) = commands.getstatusoutput(cmd)
+            (status, output) = subprocess.getstatusoutput(cmd)
             if 0 != status:
                 raise Exception(str(output))
 
             cmd = "dracut -v /boot/initramfs-$(uname -r).img $(uname -r) --force"
-            (status, output) = commands.getstatusoutput(cmd)
+            (status, output) = subprocess.getstatusoutput(cmd)
             if 0 != status:
                 raise Exception(str(output))
 
             cmd = "sync && sync"
-            (status, output) = commands.getstatusoutput(cmd)
+            (status, output) = subprocess.getstatusoutput(cmd)
             if 0 != status:
                 raise Exception(str(output))
 
             cmd = "echo 3 > /proc/sys/vm/drop_caches"
-            (status, output) = commands.getstatusoutput(cmd)
+            (status, output) = subprocess.getstatusoutput(cmd)
             if 0 != status:
                 raise Exception(str(output))
 
