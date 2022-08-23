@@ -151,16 +151,18 @@ ssh-keygen
 ```
 
 ### 6.2 生成主机IP地址文件
+安装expect
 示例：
 
 ```shell
-cd /etc/opensd/
+cd /usr/local/share/opensd/tools/
 > auto_ssh_host_ip
-for i in ip_address_list;do echo $i >> auto_ssh_host_ip;done
+172.20.108.36
+172.20.108.45
 ```
 
 ### 6.3 更改密码并执行脚本
-*将免密脚本`/usr/bin/opensd-auto-ssh`内123123替换为真实密码*
+*将免密脚本`/usr/local/bin/opensd-auto-ssh`内123123替换为真实密码*
 
 ```shell
 # 替换脚本内123123字符串
@@ -183,19 +185,19 @@ ssh-copy-id root@x.x.x.x
 **在部署节点执行：**
 
 ### 7.1 生成随机密码
-
+安装python-pbr,python-utils,python-pyyaml
 ```shell
 # 执行命令生成密码
 opensd-genpwd
 # 检查密码是否生成
-cat /etc/opensd/passwords.yml
+cat /usr/local/share/opensd/etc_examples/opensd/passwords.yml
 ```
 
 ### 7.2 配置inventory文件
 
 
 ```shell
-vim /etc/opensd/multinode
+vim /usr/local/share/opensd/ansible/inventory/multinode
 # 三台控制节点主机信息
 [control]
 rgcc0001.cn-rockydev-1 ansible_host=173.20.5.35 availability_zone=az01.cell01.cn-rockydev-1
@@ -292,7 +294,7 @@ control
 **注: 文档中提到的有注释配置项需要更改，其他参数不需要更改**
 
 ```shell
-vim /etc/opensd/globals.yml
+vim /usr/local/share/opensd/etc_examples/opensd/globals.yml
 ########################
 # Network & Base options
 ########################
@@ -450,7 +452,7 @@ ecm0001.b.cn-rockydev-1 | SUCCESS => {
 
 ```shell
 # 执行部署
-opensd -i /etc/opensd/multinode bootstrap --forks 50
+opensd -i /usr/local/share/opensd/ansible/inventory/multinode bootstrap --forks 50
 ```
 ### 8.2 重启服务器
 **注：执行重启的原因是:bootstrap可能会升内核,更改selinux配置或者有GPU服务器,如果装机过程已经是新版内核,selinux disable或者没有GPU服务器,则不需要执行该步骤**

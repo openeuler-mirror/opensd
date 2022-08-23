@@ -3,7 +3,7 @@
 # GNU General Public License v3.0+ (see LICENSE-GPLv3.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # Apache License v2.0 (see LICENSE-APACHE2.txt or http://www.apache.org/licenses/LICENSE-2.0)
 
-from __future__ import absolute_import, division, print_function
+
 __metaclass__ = type
 
 

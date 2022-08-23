@@ -5,14 +5,15 @@ change_selinux: True
 
 selinux_state: "disabled"
 
-redhat_pkg_install:
+pkg_install:
  - git
  - python-setuptools
  - sudo
- - libselinux-python
+ - python3-libselinux
+ - selinux-policy
  - python-pip
  - python-lxml
  - python-openstackclient
- - yum-utils
+
 
 redhat_pkg_removals: []

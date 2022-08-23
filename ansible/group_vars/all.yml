@@ -54,7 +54,7 @@ nova_api_database_name: nova_api
 ###################
 # Messaging options
 ###################
-oslomsg_openstack_user:
+oslomsg_openstack_user: openstack
 
 rpc_transport_url: "rabbit://{% for host in groups['rabbitmq'] %}{{ oslomsg_openstack_user }}:{{ oslomsg_openstack_password }}@{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ rabbitmq_port }}{% if not loop.last %},{% endif %}{% endfor %}"
 
@@ -125,7 +125,7 @@ enable_memcached: "yes"
 enable_neutron: "yes"
 enable_nova: "yes"
 enable_rabbitmq: "yes"
-enable_ceph_client: "yes"
+enable_ceph_client: "no"
 enable_cell: "no"
 enable_trove: "no"
 enable_ironic: "no"
@@ -145,10 +145,10 @@ enable_pri_mariadb: "no"
 ####################
 # RabbitMQ options
 ####################
-rabbitmq_cluster_name:
-rabbitmq_hipe_compile:
-rabbitmq_user:
-rabbitmq_port:
+rabbitmq_cluster_name: rabbitmq_cluster1
+rabbitmq_hipe_compile: "no"
+rabbitmq_user: "openstack"
+rabbitmq_port: "5672"
 rabbitmq_policies:
   - name: "HA"
     pattern: '^(?!(amq\.)|(.*_fanout_)|(reply_)).*'

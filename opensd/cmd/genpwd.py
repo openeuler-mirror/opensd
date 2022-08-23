@@ -18,7 +18,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-p', '--passwords', type=str,
-        default=os.path.abspath('/etc/opensd/passwords.yml'),
+        default=os.path.abspath('/usr/local/share/opensd/etc_examples/opensd/passwords.yml'),
         help=('Path to the passwords.yml file'))
 
     args = parser.parse_args()
