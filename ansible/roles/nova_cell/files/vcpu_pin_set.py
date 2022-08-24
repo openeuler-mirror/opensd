@@ -3,7 +3,7 @@
 
 import argparse
 import copy
-import commands
+import subprocess
 import os
 import re
 
@@ -15,7 +15,7 @@ def get_vgpu_pin_set(reserve_vgpu_nums):
    vgpu_pin_set = ""
 
    cmd = "lscpu |grep 'NUMA node[0-9] CPU(s)' | awk '{print $NF}' | tr ',' '\n'"
-   (status, outputline) = commands.getstatusoutput(cmd)
+   (status, outputline) = subprocess.getstatusoutput(cmd)
    if 0 != status:
        raise Exception(str(outputline))
    if "" == outputline:
@@ -25,7 +25,7 @@ def get_vgpu_pin_set(reserve_vgpu_nums):
    zheng = reserve_vgpu_nums / numa_nodes
    yu = reserve_vgpu_nums % numa_nodes
    for data in outputdata:
-       data_s = map(eval, data.split("-"))
+       data_s = list(map(eval, data.split("-")))
        if yu != 0:
            yu -= 1
            data_s[0] = data_s[0] + zheng + 1
@@ -33,7 +33,7 @@ def get_vgpu_pin_set(reserve_vgpu_nums):
            data_s[0] = data_s[0] + zheng
        data_snew="-".join([str(x) for x in data_s])
        vgpu_set.append(data_snew)
-   print (str(",".join(vgpu_set)))
+   print(str(",".join(vgpu_set)))
 
 def main():
     parser = argparse.ArgumentParser(description='''Creates a list of cron
