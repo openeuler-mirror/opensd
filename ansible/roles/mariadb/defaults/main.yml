@@ -1,14 +1,10 @@
 ---
 mariadb_packages_name:
-  - "MariaDB-common"
-  - "MariaDB-server"
-  - "MariaDB-client"
-  - "MariaDB-shared"
-  - "MariaDB-devel"
-  - "MariaDB-backup"
-  - "galera-4"
-  - "MySQL-python"
-  - "libzstd"
+  - "mariadb"
+  - "mariadb-server"
+  - "galera"
+  - "python3-PyMySQL"
+  - "zstd"
 mariadb_package_state: "present"
 
 galera_server_bootstrap_node: "{{ groups[galera_group_name|default('mariadb')][0] }}"

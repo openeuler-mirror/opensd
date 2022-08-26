@@ -23,7 +23,7 @@
     state: directory
     owner: "{{ item[1].owner|default(keystone_system_user_name) }}"
     group: "{{ item[1].group|default(keystone_system_group_name) }}"
-    mode: "{{ item[1].mode|default(0755) }}"
+    mode: "{{ item[1].mode|default('0755') }}"
   with_nested:
     - "{{ ansible_play_hosts }}"
     - - { path: "/etc/keystone", mode: "0750", owner: root }
