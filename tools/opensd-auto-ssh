@@ -11,7 +11,7 @@
 #interact
 
 # 做互信,假设密码为"123123"
-set f [open /etc/opensd/auto_ssh_host_ip r]
+set f [open /usr/local/share/opensd/tools/auto_ssh_host_ip r]
 while { [gets $f ip]>=0} {
     spawn ssh-copy-id root@$ip
     expect {

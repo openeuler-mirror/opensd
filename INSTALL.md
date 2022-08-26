@@ -155,7 +155,6 @@ ssh-keygen
 ```
 
 ### 6.2 生成主机IP地址文件
-安装expect
 示例：
 
 ```shell
@@ -174,7 +173,8 @@ vim /usr/local/bin/opensd-auto-ssh
 ```
 
 ```shell
-## 执行脚本
+## 安装expect后执行脚本
+yum install expect -y
 opensd-auto-ssh
 ```
 
@@ -189,8 +189,9 @@ ssh-copy-id root@x.x.x.x
 **在部署节点执行：**
 
 ### 7.1 生成随机密码
-安装python-pbr,python-utils,python-pyyaml
+安装 python3-pbr, python3-utils, python3-pyyaml, python3-oslo-utils并随机生成密码
 ```shell
+yum install python3-pbr python3-utils python3-pyyaml python3-oslo-utils -y
 # 执行命令生成密码
 opensd-genpwd
 # 检查密码是否生成
