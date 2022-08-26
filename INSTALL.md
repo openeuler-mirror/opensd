@@ -134,8 +134,12 @@ yum makecache
 
 **在部署节点执行：**
 
+### 5.1 克隆opensd源码并安装
+
 ```shell
-python setup.py install
+git clone https://gitee.com/openeuler/opensd
+cd opensd
+python3 setup.py install
 ```
 
 ## 6. 做ssh互信
@@ -156,7 +160,7 @@ ssh-keygen
 
 ```shell
 cd /usr/local/share/opensd/tools/
-> auto_ssh_host_ip
+vim auto_ssh_host_ip
 172.20.108.36
 172.20.108.45
 ```
@@ -166,7 +170,7 @@ cd /usr/local/share/opensd/tools/
 
 ```shell
 # 替换脚本内123123字符串
-vim /usr/bin/opensd-auto-ssh
+vim /usr/local/bin/opensd-auto-ssh
 ```
 
 ```shell
