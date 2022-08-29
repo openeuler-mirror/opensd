@@ -270,17 +270,16 @@ nova_common_packages:
   - genisoimage
   - python-openstackclient
   - python-novaclient
-  - python2-osc-placement
+  - python3-osc-placement
   - python-nova
   - openstack-nova-novncproxy
   - openstack-nova-common
-  - python2-PyMySQL
+  - python3-PyMySQL
   - python-memcached
 nova_api_packages:
   - openstack-nova-api
   - openstack-nova-conductor
   - openstack-nova-console
-  - openstack-nova-placement-api
   - openstack-nova-scheduler
 nova_package_list: |-
   {% set packages = nova_common_packages %}

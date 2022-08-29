@@ -1,0 +1,99 @@
+---
+## Verbosity Options
+placement_logging_debug: "{{ openstack_logging_debug }}"
+placement_setup_host: "{{ groups['glance'][0] }}"
+placement_enabled_import_methods:
+
+# Set the package install state
+# Options are 'present' and 'latest'
+placement_package_name:
+  - openstack-placement-api
+placement_package_state: "present"
+
+placement_profiler_enabled: False
+placement_fatal_deprecations: False
+
+## System info
+placement_system_user_name: placement
+placement_system_group_name: placement
+placement_system_shell: /bin/false
+placement_system_comment: placement system user
+placement_system_user_home: "/var/lib/{{ placement_system_user_name }}"
+placement_bin: "/usr/bin"
+
+placement_registry_host: "{{ opensd_vip_address }}"
+placement_default_store: file
+placement_additional_stores:
+  - http
+
+## API options
+placement_enable_v2_api: True
+# The v2 API does not require the registry service.
+# The registry service is scheduled for removal in the S cycle.
+placement_enable_v2_registry: False
+
+## Database info
+placement_db_setup_host: "{{ ('mariadb' in groups) | ternary(groups['mariadb'][0], 'localhost') }}"
+placement_database_name: placement
+placement_database_user: placement
+placement_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+placement_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('/etc/ssl/certs/galera-ca.pem') }}"
+placement_db_max_overflow: 200
+placement_db_max_pool_size: 500
+placement_db_pool_timeout: 30
+placement_db_min_pool_size: 100
+placement_db_max_retries: 5
+placement_db_retry_interval: 2
+placement_db_inc_retry_interval: true
+placement_db_max_retry_interval: 2
+
+placement_role_name: admin
+placement_api_bind_address: "{{ api_interface_address }}"
+placement_api_service_port: 8778
+
+## Service Type and Data
+placement_service_region: RegionOne
+placement_service_name: placement
+placement_api_port: 8778
+placement_service_proto: http
+placement_service_type: placement
+placement_service_description: "Placement API Service"
+placement_service_user_name: placement
+placement_service_project_name: service
+placement_service_project_domain_id: default
+placement_service_user_domain_id: default
+placement_service_publicurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+placement_service_internalurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+placement_service_adminurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+
+
+## Enable automatic parsing of X-Forwarded-Proto, etc. headers passed by the
+## load balancer.
+placement_proxy_headers_parsing: False
+
+## Keystone authentication middleware
+placement_keystone_auth_plugin: password
+
+## Glance config
+placement_image_cache_max_size: 10737418240
+
+# If ``placement_api_workers`` is unset the system will use half the number of available VCPUS to
+# compute the number of api workers to use.
+# placement_api_workers: 16
+
+# If ``placement_registry_workers`` is unset the system will use half the number of available VCPUS to
+# compute the number of api workers to use.
+# placement_registry_workers: 16
+
+## Cap the maximum number of threads / workers when a user value is unspecified.
+placement_api_threads_max: 16
+placement_api_threads: "{{ [[ansible_processor_vcpus|default(2) // 2, 1] | max, placement_api_threads_max] | min }}"
+
+placement_task_executor: taskflow
+placement_digest_algorithm: sha256
+
+## Glance policy
+placement_policy_file: policy.json
+placement_policy_default_rule: default
+placement_policy_dirs: policy.d
+

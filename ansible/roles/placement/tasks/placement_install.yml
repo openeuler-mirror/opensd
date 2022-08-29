@@ -1,0 +1,24 @@
+---
+- name: Ensure placement packages installed
+  package:
+    name: "{{ placement_package_name}}"
+    state: "{{ placement_package_state }}"
+  register: packages_install
+  until: packages_install is success
+  retries: 5
+  delay: 2
+  notify: Restart placement services
+
+- name: Copying over placement.conf
+  merge_configs:
+    sources:
+      - "{{ role_path }}/templates/{{ item }}.conf.j2"
+    dest: "/etc/placement/{{ item }}.conf"
+    mode: "0660"
+  become: true
+  with_items:
+    - placement
+  notify:
+    - Restart placement services
+
+

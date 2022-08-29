@@ -54,6 +54,9 @@ control
 [glance:children]
 control
 
+[placement:children]
+control
+
 [trove:children]
 control
 
@@ -70,9 +73,6 @@ network
 control
 
 [miner:children]
-control
-# Placement
-[placement-api:children]
 control
 
 [openvswitch:children]
@@ -106,6 +106,10 @@ glance
 
 [glance-registry:children]
 glance
+
+# Placement
+[placement-api:children]
+placement
 
 # Nova
 [nova-api:children]
