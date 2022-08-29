@@ -18,9 +18,6 @@
         - name: "{{ nova_service_name }}"
           service_type: "{{ nova_service_type }}"
           description: "{{ nova_service_description }}"
-        - name: "{{ nova_placement_service_name }}"
-          service_type: "{{ nova_placement_service_type }}"
-          description: "{{ nova_placement_service_description }}"
 
     - name: Add service users
       os_user:
@@ -41,9 +38,6 @@
         - name: "{{ nova_service_user_name }}"
           password: "{{ nova_service_password }}"
           default_project: "{{ nova_service_project_name }}"
-        - name: "{{ nova_placement_service_username }}"
-          password: "{{ nova_placement_service_password }}"
-          default_project: "{{ nova_placement_service_project_name }}"
       loop_control:
         label: "{{ item.name }}"
 
@@ -64,9 +58,6 @@
         - user: "{{ nova_service_user_name }}"
           role: "{{ nova_service_role_name }}"
           project: "{{ nova_service_project_name }}"
-        - user: "{{ nova_placement_service_username }}"
-          role: "{{ nova_placement_service_role_name }}"
-          project: "{{ nova_placement_service_project_name }}"
 
     - name: Add endpoints to keystone endpoint catalog
       os_keystone_endpoint:
@@ -92,12 +83,3 @@
         - service: "{{ nova_service_name }}"
           interface: "admin"
           url: "{{ nova_service_adminurl }}"
-        - service: "{{ nova_placement_service_name }}"
-          interface: "public"
-          url: "{{ nova_placement_service_publicurl }}"
-        - service: "{{ nova_placement_service_name }}"
-          interface: "internal"
-          url: "{{ nova_placement_service_internalurl }}"
-        - service: "{{ nova_placement_service_name }}"
-          interface: "admin"
-          url: "{{ nova_placement_service_adminurl }}"

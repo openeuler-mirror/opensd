@@ -52,14 +52,3 @@
   notify:
     - Restart nova services
 
-- name: Copying over placement-api wsgi configuration
-  template:
-    src: "placement-api-wsgi.conf.j2"
-    dest: "/etc/httpd/conf.d/00-nova-placement-api.conf"
-    owner: root
-    group: "{{ nova_system_user_name }}"
-    mode: "0660"
-  when:
-    - inventory_hostname in groups['nova-api']
-  notify:
-    - Restart httpd service (placement-api)
