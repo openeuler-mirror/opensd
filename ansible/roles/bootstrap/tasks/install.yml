@@ -23,18 +23,18 @@
 
 - name: Install yum packages
   yum:
-    name: "{{ redhat_pkg_install }}"
+    name: "{{ pkg_install }}"
     state: present
     update_cache: yes
   become: True
   when:
-    - redhat_pkg_install != ""
+    - pkg_install != ""
 
 - name: Remove packages
   package:
     name: "{{ item }}"
     state: absent
-  with_items: "{{ redhat_pkg_removals }}"
+  with_items: "{{ pkg_removals }}"
   become: True
   when:
     - item != ""

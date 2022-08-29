@@ -16,4 +16,4 @@ pkg_install:
  - python-openstackclient
 
 
-redhat_pkg_removals: []
+pkg_removals: []

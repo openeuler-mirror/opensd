@@ -435,9 +435,10 @@ neutron_package_state: "present"
 miner_package_state: "present"
 ```
 
-6. 检查所有节点ssh连接状态
+### 7.4 检查所有节点ssh连接状态
 ```shell
-ansible all -i /etc/opensd/multinode -m ping
+yum install ansible -y
+ansible all -i /usr/local/share/opensd/ansible/inventory/multinode -m ping
 
 # 执行结果显示每台主机都是"SUCCESS"即说明连接状态没问题,示例：
 ecm0001.b.cn-rockydev-1 | SUCCESS => {
@@ -469,7 +470,7 @@ opensd -i /usr/local/share/opensd/ansible/inventory/multinode bootstrap --forks 
 # 手动重启对应节点,执行命令
 init6
 # 重启完成后，再次检查连通性
-ansible all -i /etc/opensd/multinode -m ping
+ansible all -i /usr/local/share/opensd/ansible/inventory/multinode -m ping
 # 重启完后操作系统后，再次启动yum源
 cd /opt/repo/
 python -m SimpleHTTPServer 38888 > /dev/null 2>&1  &
@@ -477,10 +478,10 @@ python -m SimpleHTTPServer 38888 > /dev/null 2>&1  &
 ### 8.3 执行部署前检查
 
 ```shell
-opensd -i /etc/opensd/multinode prechecks --forks 50
+opensd -i /usr/local/share/opensd/ansible/inventory/multinode prechecks --forks 50
 ```
 ### 8.4 执行部署
 
 ```shell
-opensd -i /etc/opensd/multinode deploy --forks 50
+opensd -i /usr/local/share/opensd/ansible/inventory/multinode deploy --forks 50
 ```
