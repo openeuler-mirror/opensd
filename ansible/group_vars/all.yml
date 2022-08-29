@@ -45,9 +45,9 @@ external_ntp_servers: []
 # Database options
 ####################
 database_address: "{{ opensd_vip_address }}"
-database_user:
-database_port:
-galera_root_user:
+database_user: "root"
+database_port: "3306"
+galera_root_user: "root"
 nova_api_mysql_user: nova_api
 nova_api_database_name: nova_api
 
@@ -129,6 +129,7 @@ enable_ceph_client: "no"
 enable_cell: "no"
 enable_trove: "no"
 enable_ironic: "no"
+enable_placement: "yes"
 
 # Most memcache clients handle load-balancing via client side
 # hashing (consistent or not) logic, so going under the covers and messing

@@ -1,0 +1,8 @@
+---
+- name: Restart placement service
+  service:
+    name: httpd.service
+    state: restarted
+    enabled: true
+  listen: Restart placement services
+

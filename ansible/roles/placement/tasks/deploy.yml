@@ -1,0 +1,17 @@
+---
+# Copyright 2022 zhangying <zhangy1317@chinaunicom.cn>
+- include_tasks: placement_pre_install.yml
+
+- include_tasks: placement_install.yml
+
+- include_tasks: placement_db_setup.yml
+  when: inventory_hostname == placement_setup_host
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- include_tasks: placement_register.yml
+  when: inventory_hostname == placement_setup_host
+
+# (TODO)
+- include_tasks: placement_check.yml

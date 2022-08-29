@@ -33,7 +33,6 @@
   become: true
   with_items:
     - glance-api
-    - glance-registry
   notify:
     - Restart glance services
 

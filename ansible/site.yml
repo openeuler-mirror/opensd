@@ -174,6 +174,16 @@
         tags: glance,
         when: enable_glance | bool }
 
+- name: Apply role placement
+  gather_facts: false
+  hosts:
+    - placement-api
+  serial: '{{ opensd_serial|default("0") }}'
+  roles:
+    - { role: placement,
+        tags: placement,
+        when: enable_placement | bool }
+
 - name: Apply role cinder
   gather_facts: false
   hosts:
