@@ -109,7 +109,7 @@ nova_novncproxy_base_url: "http://{{ external_fqdn if external_fqdn is defined a
 nova_novncproxy_vncserver_proxyclient_address: "{{ api_interface_address }}"
 nova_novncproxy_vncserver_listen: "{{ api_interface_address }}"
 nova_novncproxy_agent_enabled: True
-vnc_auth_schemes: "none,vnc"
+vnc_auth_schemes: "none,vencrypt"
 
 ## Nova metadata
 nova_metadata_port: 8775
@@ -205,14 +205,8 @@ nova_scheduler_driver_task_period: 60
 nova_scheduler_host_subset_size: 10
 nova_scheduler_max_attempts: 5
 nova_scheduler_default_filters: >-
-  RetryFilter,
   AvailabilityZoneFilter,
-  RamFilter,
-  AggregateRamFilter,
   ComputeFilter,
-  AggregateCoreFilter,
-  DiskFilter,
-  AggregateDiskFilter,
   AggregateNumInstancesFilter,
   AggregateIoOpsFilter,
   ComputeCapabilitiesFilter,
@@ -222,7 +216,6 @@ nova_scheduler_default_filters: >-
   NUMATopologyFilter,
   PciPassthroughFilter,
   AggregateMultiTenancyIsolation,
-  DedicatedHostFilter,
   AggregateInstanceExtraSpecsFilter
 nova_scheduler_driver: filter_scheduler
 nova_scheduler_available_filters: nova.scheduler.filters.all_filters
@@ -302,7 +295,7 @@ nova_common_packages:
   - python-nova
   - openstack-nova-novncproxy
   - openstack-nova-common
-  - python2-PyMySQL
+  - python3-PyMySQL
   - python-memcached
 nova_compute_packages_x86_64:
   - openstack-nova-compute
@@ -345,7 +338,7 @@ nova_package_state: "present"
 # Libvirt package info
 libvirt_common_packages:
   - nc
-  - libvirt-python
+  - python-libvirt
   - nfs-utils
   - python-libguestfs
   - sysfsutils
@@ -353,14 +346,8 @@ libvirt_packages_x86_64:
   - libvirt-daemon-kvm
   - libvirt-daemon-driver-qemu
   - libvirt-client
-  - qemu-kvm-ev
-  - qemu-img-ev
 libvirt_packages_aarch64:
   - libvirt
-  - qemu-kvm-ma
-  - qemu-kvm-common-ma
-  - qemu-kvm-tools-ma
-  - qemu-img-ma
 libvirt_package_list: |-
   {% set packages = libvirt_common_packages %}
   {% if nova_services['nova-compute']['group'] in group_names or nova_services['ironic-nova-compute']['group'] in group_names %}
