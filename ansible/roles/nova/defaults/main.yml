@@ -185,14 +185,8 @@ nova_scheduler_driver_task_period: 60
 nova_scheduler_host_subset_size: 1
 nova_scheduler_max_attempts: 5
 nova_scheduler_default_filters: >-
-  RetryFilter,
   AvailabilityZoneFilter,
-  RamFilter,
-  AggregateRamFilter,
   ComputeFilter,
-  AggregateCoreFilter,
-  DiskFilter,
-  AggregateDiskFilter,
   AggregateNumInstancesFilter,
   AggregateIoOpsFilter,
   ComputeCapabilitiesFilter,
@@ -202,7 +196,6 @@ nova_scheduler_default_filters: >-
   NUMATopologyFilter,
   PciPassthroughFilter,
   AggregateMultiTenancyIsolation,
-  DedicatedHostFilter,
   AggregateInstanceExtraSpecsFilter
 nova_scheduler_driver: filter_scheduler
 nova_scheduler_available_filters: nova.scheduler.filters.all_filters
@@ -279,7 +272,6 @@ nova_common_packages:
 nova_api_packages:
   - openstack-nova-api
   - openstack-nova-conductor
-  - openstack-nova-console
   - openstack-nova-scheduler
 nova_package_list: |-
   {% set packages = nova_common_packages %}

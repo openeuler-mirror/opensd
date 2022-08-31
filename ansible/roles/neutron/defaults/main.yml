@@ -268,12 +268,6 @@ neutron_services:
     service_conf_path: "{{ neutron_conf_dir }}"
     service_conf: lbaas_agent.ini
     start_order: 3
-  neutron-metering-agent:
-    group: neutron-metering-agent
-    service_name: neutron-metering-agent
-    service_conf_path: "{{ neutron_conf_dir }}"
-    service_conf: metering_agent.ini
-    start_order: 3
   neutron-metadata-agent:
     group: neutron-metadata-agent
     service_name: neutron-metadata-agent
@@ -322,25 +316,21 @@ neutron_service_distro_packages:
   - python-memcached
   - python-neutronclient
   - python-novaclient
-  - python-neutron-fwaas
 neutron_optional_ovs_distro_packages:
   - openstack-neutron-openvswitch
 
 neutron_optional_lbaas_distro_packages:
-  - openstack-neutron-lbaas
   - nginx
-  - ipvs
-  - ipvs-fnat
   - ipvsadm
 
 neutron_optional_metering_distro_packages:
   - openstack-neutron-metering-agent
-  - python2-pykafka
+  - python3-kafka-python
   - librdkafka
-  - python2-tabulate
+  - python3-tabulate
   - fping
 neutron_optional_ngs_distro_packages:
-  - python2-networking-generic-switch
+  - python3-networking_generic_switch
 
 neutron_metadata_agent_distro_packages:
   - haproxy
@@ -353,9 +343,6 @@ neutron_sdn_or_firwalld_distro_packages:
   - python-requests-oauthlib
   - python-requests
   - python-urllib3
-  - networking-terra
-  - openstack-neutron-fwaas
-  - python-neutron-fwaas
 
 neutron_remove_distro_packages: []
 neutron_package_list: |-
@@ -368,9 +355,6 @@ neutron_package_list: |-
   {% endif %}
   {%if neutron_services['neutron-lbaasv2-agent']['group'] in group_names %}
   {% set _ = packages.extend(neutron_optional_lbaas_distro_packages) %}
-  {% endif %}
-  {%if neutron_services['neutron-metering-agent']['group'] in group_names %}
-  {% set _ = packages.extend(neutron_optional_metering_distro_packages) %}
   {% endif %}
   {%if neutron_services['neutron-server']['group'] in group_names %}
   {% set _ = packages.extend(neutron_service_distro_packages) %}
@@ -454,10 +438,10 @@ neutron_ml2_conf_genericswitch:
 #### Metering Aget Configuration
 ####
 
-enable_meter_full_eip: True
-enable_meter_port_forwarding: True
-enable_meter_ecs_ipv6: True
-enable_meter: True
+enable_meter_full_eip: False
+enable_meter_port_forwarding: False
+enable_meter_ecs_ipv6: False
+enable_meter: False
 is_sdn_arch: False
 report_vm_interval: 300
 measure_interval: 10
