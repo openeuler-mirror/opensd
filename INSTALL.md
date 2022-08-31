@@ -483,5 +483,7 @@ opensd -i /usr/local/share/opensd/ansible/inventory/multinode prechecks --forks 
 ### 8.4 执行部署
 
 ```shell
+ln -s /usr/bin/python3 /usr/bin/python
+
 opensd -i /usr/local/share/opensd/ansible/inventory/multinode deploy --forks 50
 ```

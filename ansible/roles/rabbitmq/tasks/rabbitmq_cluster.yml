@@ -1,7 +1,7 @@
 ---
 - name: Get rabbitmq cluster name
   shell: |
-    rabbitmqctl -q cluster_status | paste -sd '' - | sed 's/ //g' | grep -oP '(?<={cluster_name,<<").*(?=">>})'
+    rabbitmqctl -q cluster_status | paste -sd '' - | sed 's/ //g'
   args:
     executable: /bin/bash
   changed_when: false

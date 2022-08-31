@@ -98,20 +98,20 @@ nova_enable_instance_password: True
 nova_force_config_drive: True
 
 ## Nova placement
-nova_placement_service_enabled: True
-nova_placement_service_user_domain_id: Default
-nova_placement_service_project_domain_id: Default
-nova_placement_service_interface: internal
-nova_placement_service_username: placement
-nova_placement_service_name: placement
-nova_placement_service_role_name: "{{ nova_service_role_name }}"
-nova_placement_service_type: placement
-nova_placement_service_project_name: "{{ nova_service_project_name }}"
-nova_placement_service_region: "{{ nova_service_region }}"
-nova_placement_service_description: "Openstack Placement Service"
-nova_placement_service_publicurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
-nova_placement_service_internalurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
-nova_placement_service_adminurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+placement_service_enabled: True
+placement_service_user_domain_id: Default
+placement_service_project_domain_id: Default
+placement_service_interface: internal
+placement_service_username: placement
+placement_service_name: placement
+placement_service_role_name: "{{ nova_service_role_name }}"
+placement_service_type: placement
+placement_service_project_name: "{{ nova_service_project_name }}"
+placement_service_region: "{{ nova_service_region }}"
+placement_service_description: "Openstack Placement Service"
+placement_service_publicurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+placement_service_internalurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
+placement_service_adminurl: "http://{{ opensd_vip_address }}:{{ placement_api_port }}"
 
 ## Nova libvirt
 libvirt_service_name: libvirtd
