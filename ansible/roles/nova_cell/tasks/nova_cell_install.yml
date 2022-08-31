@@ -80,17 +80,18 @@
     loop_var: outer_item
   when: inventory_hostname in groups[nova_services['ironic-nova-compute']['group']]
 
-- name: Copying over rfb.js
-  copy:
-    src: rfb.js
-    dest: /usr/share/novnc/include/rfb.js
-    owner: root
-    group: root
-    mode: '0444'
-  become: true
-  when: inventory_hostname in groups[nova_cell_conductor_group]
-  notify:
-    - Restart nova services
+  #- name: Copying over rfb.js
+  #copy:
+  #  src: rfb.js
+  #  dest: /usr/share/novnc/include/rfb.js
+  #  owner: root
+  #  group: root
+  #  mode: '0444'
+  #become: true
+  #when: inventory_hostname in groups[nova_cell_conductor_group]
+  #notify:
+  #  - Restart nova services
+
 
 - name: Add commit button for password input
   lineinfile:

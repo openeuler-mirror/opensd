@@ -160,17 +160,17 @@ auth_url = {{ keystone_auth_url }}
 ovs_bridge = {{ nova_network_services[nova_network_type]['ovs_bridge'] }}
 {% endif %}
 
-{% if nova_placement_service_enabled | bool %}
+{% if placement_service_enabled | bool %}
 # Placement
 [placement]
-region_name = {{ nova_placement_service_region }}
-valid_interfaces = {{ nova_placement_service_interface }}
+region_name = {{ placement_service_region }}
+valid_interfaces = {{ placement_service_interface }}
 auth_type = "password"
-password = {{ nova_placement_service_password }}
-username = {{ nova_placement_service_username }}
-project_name = {{ nova_placement_service_project_name }}
-user_domain_name = {{ nova_placement_service_user_domain_id }}
-project_domain_name = {{ nova_placement_service_project_domain_id }}
+password = {{ placement_service_password }}
+username = {{ placement_service_username }}
+project_name = {{ placement_service_project_name }}
+user_domain_name = {{ placement_service_user_domain_id }}
+project_domain_name = {{ placement_service_project_domain_id }}
 auth_url = {{ keystone_auth_url }}
 {% endif %}
 

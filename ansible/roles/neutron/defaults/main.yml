@@ -342,7 +342,7 @@ neutron_sdn_or_firwalld_distro_packages:
   - python-oauthlib
   - python-requests-oauthlib
   - python-requests
-  - python-urllib3
+  - python3-urllib3
 
 neutron_remove_distro_packages: []
 neutron_package_list: |-

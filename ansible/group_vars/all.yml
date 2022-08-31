@@ -5,10 +5,10 @@
 ansible_managed: "Managed by ansible"
 
 # The directory to store the config files on the destination node
-node_config_directory: "/etc/opensd/"
+node_config_directory: "/usr/local/share/opensd/etc_examples/opensd/"
 
 # The directory to merge custom config files the opensd's config files
-node_custom_config: "/etc/opensd/custom"
+node_custom_config: "/usr/local/share/opensd/etc_examples/opensd/custom"
 
 # vip address
 opensd_vip_address:
@@ -88,7 +88,7 @@ neutron_server_port: "9696"
 nova_api_port: "8774"
 nova_metadata_port: "8775"
 nova_novncproxy_port: "6080"
-placement_api_port: "8780"
+placement_api_port: "8778"
 rabbitmq_management_port: "15672"
 miner_api_port: "9999"
 haproxy_miner_api_port: "19999"
@@ -125,8 +125,8 @@ enable_memcached: "yes"
 enable_neutron: "yes"
 enable_nova: "yes"
 enable_rabbitmq: "yes"
-enable_ceph_client: "no"
-enable_cell: "no"
+enable_ceph_client: "yes"
+enable_cell: "yes"
 enable_trove: "no"
 enable_ironic: "no"
 enable_placement: "yes"
