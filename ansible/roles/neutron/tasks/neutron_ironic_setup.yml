@@ -1,7 +1,7 @@
 ---
 - name: Install networking generic switch
   package:
-    name: "python2-networking-generic-switch"
+    name: "python3-networking_generic_switch"
     state: "{{ neutron_package_state }}"
   register: install_packages
   until: install_packages is success

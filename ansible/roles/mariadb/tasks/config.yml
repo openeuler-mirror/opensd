@@ -85,6 +85,14 @@
     owner: "root"
     mode: "0755"
 
+- name: Create mysqld dir
+  file:
+    path: "/var/run/mysqld"
+    state: "directory"
+    group: "mysql"
+    owner: "mysql"
+    mode: "0755"
+
 - name: Apply systemd options
   template:
     src: "{{ item.src }}"

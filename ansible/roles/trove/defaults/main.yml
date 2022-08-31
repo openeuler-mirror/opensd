@@ -8,7 +8,7 @@ trove_setup_host: "{{ groups['trove'][0] }}"
 trove_package_name:
   - openstack-trove
 trove_client_package_name:
-  - python2-troveclient 
+  - python3-troveclient 
 trove_package_state: "present"
 
 ## System info
