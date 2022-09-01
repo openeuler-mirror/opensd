@@ -1,16 +1,11 @@
 ---
 pri_mariadb_packages_name:
-  - "MariaDB-common"
-  - "MariaDB-server"
-  - "MariaDB-client"
-  - "MariaDB-shared"
-  - "MariaDB-devel"
-  - "MariaDB-backup"
-  - "galera-4"
-  - "MySQL-python"
-  - "libzstd"
-  - "mariadb3307"
-  - "mariadb3308"
+  - "mariadb"
+  - "mariadb-config"
+  - "mariadb-server"
+  - "galera"
+  - "python3-PyMySQL"
+  - "zstd"
 pri_mariadb_package_state: "present"
 
 galera_server_bootstrap_node: "{{ groups[galera_group_name|default('pri_mariadb')][0] }}"

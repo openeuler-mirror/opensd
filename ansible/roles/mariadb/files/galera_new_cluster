@@ -38,7 +38,7 @@ trap cleanup EXIT INT TERM
 EXIT_CODE=0
 if ! systemctl status mariadb > /dev/null; then
   systemctl set-environment _WSREP_NEW_CLUSTER='--wsrep-new-cluster'
-  if grep -rniq -e suse -e opensuse /etc/os-release; then
+  if grep -rniq -e openEuler /etc/os-release; then
     bootstrap_opts
   fi
   if systemctl start mariadb; then
