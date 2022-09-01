@@ -1,6 +1,7 @@
 ---
 mariadb_packages_name:
   - "mariadb"
+  - "mariadb-config"
   - "mariadb-server"
   - "galera"
   - "python3-PyMySQL"

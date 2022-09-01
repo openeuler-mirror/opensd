@@ -443,7 +443,7 @@ ansible all -i /usr/local/share/opensd/ansible/inventory/multinode -m ping
 # 执行结果显示每台主机都是"SUCCESS"即说明连接状态没问题,示例：
 ecm0001.b.cn-rockydev-1 | SUCCESS => {
   "ansible_facts": {
-      "discovered_interpreter_python": "/usr/bin/python"
+      "discovered_interpreter_python": "/usr/bin/python3"
   },
   "changed": false,
   "ping": "pong"
