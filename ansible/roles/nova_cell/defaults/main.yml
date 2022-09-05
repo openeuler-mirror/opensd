@@ -342,6 +342,7 @@ libvirt_common_packages:
   - nfs-utils
   - python-libguestfs
   - sysfsutils
+  - dmidecode
 libvirt_packages_x86_64:
   - libvirt-daemon-kvm
   - libvirt-daemon-driver-qemu

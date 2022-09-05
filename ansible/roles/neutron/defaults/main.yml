@@ -146,7 +146,7 @@ neutron_plugin_base:
   - "{% if enable_neutron_fwaas %}firewall{% endif %}"
   - qos
   - router
-  - lbaasv2
+  #- lbaasv2
   - neutron.services.metering.metering_plugin.MeteringPlugin
 
 ###
@@ -262,12 +262,12 @@ neutron_services:
     service_conf_path: "{{ neutron_conf_dir }}"
     service_conf: l3_agent.ini
     start_order: 3
-  neutron-lbaasv2-agent:
-    group: neutron-lbaasv2-agent
-    service_name: neutron-lbaasv2-agent
-    service_conf_path: "{{ neutron_conf_dir }}"
-    service_conf: lbaas_agent.ini
-    start_order: 3
+  #neutron-lbaasv2-agent:
+  #  group: neutron-lbaasv2-agent
+  #  service_name: neutron-lbaasv2-agent
+  #  service_conf_path: "{{ neutron_conf_dir }}"
+  #  service_conf: lbaas_agent.ini
+  #  start_order: 3
   neutron-metadata-agent:
     group: neutron-metadata-agent
     service_name: neutron-metadata-agent
@@ -353,9 +353,6 @@ neutron_package_list: |-
   {% set _ = packages.extend(neutron_ovs_distro_packages) %}
   {% endif %}
   {% endif %}
-  {%if neutron_services['neutron-lbaasv2-agent']['group'] in group_names %}
-  {% set _ = packages.extend(neutron_optional_lbaas_distro_packages) %}
-  {% endif %}
   {%if neutron_services['neutron-server']['group'] in group_names %}
   {% set _ = packages.extend(neutron_service_distro_packages) %}
   {% set _ = packages.extend(neutron_optional_lbaas_distro_packages) %}
@@ -371,6 +368,10 @@ neutron_package_list: |-
   {% set _ = packages.extend(neutron_sdn_or_firwalld_distro_packages) %}
   {% endif %}
   {{ packages }}
+
+#{%if neutron_services['neutron-lbaasv2-agent']['group'] in group_names %}
+#{% set _ = packages.extend(neutron_optional_lbaas_distro_packages) %}
+#{% endif %}
 
 neutron_package_state: "present"
 
@@ -473,7 +474,7 @@ neutron_fip_qos: true
 ###
 ### Lbaasv2 Agent Plugin Configuration
 ###
-neutron_lbaasv2: true
+neutron_lbaasv2: false
 compute_neutron_lbaasv2_service_provider:
   - LOADBALANCERV2:LVS:neutron_lbaas.drivers.lvs.plugin_driver.LVSOnHostPluginDriver:default
 control_neutron_lbaasv2_service_provider:

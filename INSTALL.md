@@ -10,15 +10,14 @@ opensd用于批量地脚本化部署openstack各组件服务。
 
 ## 1. 部署前需要确认的信息
 
-  - 两个VIP（虚拟IP）地址，一个控制节点用，一个cell节点用
-  - 业务网vlan范围
-  - 一台ceph_monitor主机ip地址
   - 装操作系统时，需将selinux设置为disable
   - 装操作系统时，将/etc/ssh/sshd_config配置文件内的UseDNS设置为no
   - 操作系统语言应设置为英文
-  - 部署之前请确保所有计算节点/etc/hosts文件内没有对计算主机的解析，例如：如果有ecm00x的解析都需要将该条解析删除(目前已知的是在计算和ceph融合部署时会有这种情况)
+  - 部署之前请确保所有计算节点/etc/hosts文件内没有对计算主机的解析
 
-## 2. ceph pool与认证创建
+## 2. ceph pool与认证创建（可选）
+
+不使用ceph或已有ceph集群可忽略此步骤
 
 **在任意一台ceph monitor节点执行:**
 ### 2.1 创建pool:
@@ -42,10 +41,9 @@ ceph auth get-or-create client.glance mon 'profile rbd' osd 'profile rbd pool=im
 ceph auth get-or-create client.cinder mon 'profile rbd' osd 'profile rbd pool=volumes, profile rbd pool=images' mgr 'profile rbd pool=volumes'
 ```
 
-## 3. 配置lvm
+## 3. 配置lvm（可选）
 
 **根据物理机磁盘配置与闲置情况，为mysql数据目录挂载额外的磁盘空间。示例如下（根据实际情况做配置）：**
-
 
 ```
 fdisk -l
@@ -98,7 +96,6 @@ mount /dev/mapper/vg_mariadb-lv_mariadb /var/lib/mysql
 rm -rf  /var/lib/mysql/*
 ```
 
-
 ## 4. 配置yum repo
 
 **在部署节点执行：**
@@ -114,11 +111,17 @@ mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/
 
 ```shell
 cat > /etc/yum.repos.d/opensd.repo << EOF
-[base]
-name=opensd Base
-baseurl=http://xx.xx.xx.xx
-gpgcheck=0
+[epol]
+name=epol
+baseurl=http://119.3.219.20:82/openEuler:/22.09:/Epol/$basearch/
 enabled=1
+gpgcheck=0
+
+[everything]
+name=everything
+baseurl=http://119.3.219.20:82/openEuler:/22.09/$basearch/
+enabled=1
+gpgcheck=0
 
 EOF
 ```
@@ -155,17 +158,20 @@ ssh-keygen
 ```
 
 ### 6.2 生成主机IP地址文件
-示例：
+在auto_ssh_host_ip中配置所有用到的主机ip, 示例：
 
 ```shell
 cd /usr/local/share/opensd/tools/
 vim auto_ssh_host_ip
-172.20.108.36
-172.20.108.45
+
+10.0.0.1
+10.0.0.2
+...
+10.0.0.10
 ```
 
 ### 6.3 更改密码并执行脚本
-*将免密脚本`/usr/local/bin/opensd-auto-ssh`内123123替换为真实密码*
+*将免密脚本`/usr/local/bin/opensd-auto-ssh`内123123替换为主机真实密码*
 
 ```shell
 # 替换脚本内123123字符串
@@ -178,7 +184,7 @@ yum install expect -y
 opensd-auto-ssh
 ```
 
-### 6.4 部署节点与ceph monitor做互信
+### 6.4 部署节点与ceph monitor做互信（可选）
 
 ```shell
 ssh-copy-id root@x.x.x.x
@@ -199,54 +205,38 @@ cat /usr/local/share/opensd/etc_examples/opensd/passwords.yml
 ```
 
 ### 7.2 配置inventory文件
-
+主机信息包含：主机名、ansible_host IP、availability_zone，三者均需配置缺一不可，示例：
 
 ```shell
 vim /usr/local/share/opensd/ansible/inventory/multinode
 # 三台控制节点主机信息
 [control]
-rgcc0001.cn-rockydev-1 ansible_host=173.20.5.35 availability_zone=az01.cell01.cn-rockydev-1
-rgcc0002.cn-rockydev-1 ansible_host=173.20.5.36 availability_zone=az01.cell01.cn-rockydev-1
-rgcc0003.cn-rockydev-1 ansible_host=173.20.5.37 availability_zone=az01.cell01.cn-rockydev-1
+controller1 ansible_host=10.0.0.35 availability_zone=az01.cell01.cn-yogadev-1
+controller2 ansible_host=10.0.0.36 availability_zone=az01.cell01.cn-yogadev-1
+controller3 ansible_host=10.0.0.37 availability_zone=az01.cell01.cn-yogadev-1
 
 # 网络节点信息，与控制节点保持一致
 [network]
-rgcc0001.cn-rockydev-1 ansible_host=173.20.5.35 availability_zone=az01.cell01.cn-rockydev-1
-rgcc0002.cn-rockydev-1 ansible_host=173.20.5.36 availability_zone=az01.cell01.cn-rockydev-1
-rgcc0003.cn-rockydev-1 ansible_host=173.20.5.37 availability_zone=az01.cell01.cn-rockydev-1
+controller1 ansible_host=10.0.0.35 availability_zone=az01.cell01.cn-yogadev-1
+controller2 ansible_host=10.0.0.36 availability_zone=az01.cell01.cn-yogadev-1
+controller3 ansible_host=10.0.0.37 availability_zone=az01.cell01.cn-yogadev-1
 
-# cinder-volume服务节点信息，分下面两种情况，根据情况，选择一种填写。
-# 1) 如果一个cell下只部署一个AZ，将三台cell节点信息填写到这个主机组
+# cinder-volume服务节点信息
 [storage]
-cell01-1.cn-rockydev-1 ansible_host=172.20.33.61 availability_zone=az01.cell01.cn-rockydev-1
-cell01-2.cn-rockydev-1 ansible_host=172.20.33.78 availability_zone=az01.cell01.cn-rockydev-1
-cell01-3.cn-rockydev-1 ansible_host=172.20.33.82 availability_zone=az01.cell01.cn-rockydev-1
-# 2） 如果一个cell下部署多个AZ，将每个AZ的计算节点的前三台填写到这个主机组，主机顺序请按AZ顺序填写（该示例是三个AZ情况）
-[storage]
-ecm0001.a.cn-rockydev-1 ansible_host=173.20.5.27 availability_zone=az01.cell01.cn-rockydev-1
-ecm0002.a.cn-rockydev-1 ansible_host=173.20.5.28 availability_zone=az01.cell01.cn-rockydev-1
-ecm0003.a.cn-rockydev-1 ansible_host=173.20.5.29 availability_zone=az01.cell01.cn-rockydev-1
-ecm0001.b.cn-rockydev-1 ansible_host=173.20.5.30 availability_zone=az02.cell01.cn-rockydev-1
-ecm0002.b.cn-rockydev-1 ansible_host=173.20.5.31 availability_zone=az02.cell01.cn-rockydev-1
-ecm0003.b.cn-rockydev-1 ansible_host=173.20.5.32 availability_zone=az02.cell01.cn-rockydev-1
-ecm0001.c.cn-rockydev-1 ansible_host=173.20.5.39 availability_zone=az03.cell02.cn-rockydev-1
-ecm0002.c.cn-rockydev-1 ansible_host=173.20.5.40 availability_zone=az03.cell02.cn-rockydev-1
-ecm0003.c.cn-rockydev-1 ansible_host=173.20.5.41 availability_zone=az03.cell02.cn-rockydev-1
+storage1 ansible_host=10.0.0.61 availability_zone=az01.cell01.cn-yogadev-1
+storage2 ansible_host=10.0.0.78 availability_zone=az01.cell01.cn-yogadev-1
+storage3 ansible_host=10.0.0.82 availability_zone=az01.cell01.cn-yogadev-1
 
 # Cell1 集群信息
 [cell-control-cell1]
-clcc0001.cn-rockydev-1 ansible_host=173.20.5.24 availability_zone=az01.cell01.cn-rockydev-1
-clcc0002.cn-rockydev-1 ansible_host=173.20.5.25 availability_zone=az01.cell01.cn-rockydev-1
-clcc0003.cn-rockydev-1 ansible_host=173.20.5.26 availability_zone=az01.cell01.cn-rockydev-1
+cell1 ansible_host=10.0.0.24 availability_zone=az01.cell01.cn-yogadev-1
+cell2 ansible_host=10.0.0.25 availability_zone=az01.cell01.cn-yogadev-1
+cell3 ansible_host=10.0.0.26 availability_zone=az01.cell01.cn-yogadev-1
 
 [compute-cell1]
-ecm0001.a.cn-rockydev-1 ansible_host=173.20.5.27 availability_zone=az01.cell01.cn-rockydev-1
-ecm0002.a.cn-rockydev-1 ansible_host=173.20.5.28 availability_zone=az01.cell01.cn-rockydev-1
-ecm0003.a.cn-rockydev-1 ansible_host=173.20.5.29 availability_zone=az01.cell01.cn-rockydev-1
-ecm0001.b.cn-rockydev-1 ansible_host=173.20.5.30 availability_zone=az02.cell01.cn-rockydev-1
-ecm0002.b.cn-rockydev-1 ansible_host=173.20.5.31 availability_zone=az02.cell01.cn-rockydev-1
-ecm0003.b.cn-rockydev-1 ansible_host=173.20.5.32 availability_zone=az02.cell01.cn-rockydev-1
-
+compute1 ansible_host=10.0.0.27 availability_zone=az01.cell01.cn-yogadev-1
+compute2 ansible_host=10.0.0.28 availability_zone=az01.cell01.cn-yogadev-1
+compute3 ansible_host=10.0.0.29 availability_zone=az01.cell01.cn-yogadev-1
 
 [cell1:children]
 cell-control-cell1
@@ -254,14 +244,14 @@ compute-cell1
 
 # Cell2集群信息
 [cell-control-cell2]
-clcc0004.cn-rockydev-1 ansible_host=173.20.5.36 availability_zone=az03.cell02.cn-rockydev-1
-clcc0005.cn-rockydev-1 ansible_host=173.20.5.37 availability_zone=az03.cell02.cn-rockydev-1
-clcc0006.cn-rockydev-1 ansible_host=173.20.5.38 availability_zone=az03.cell02.cn-rockydev-1
+cell4 ansible_host=10.0.0.36 availability_zone=az03.cell02.cn-yogadev-1
+cell5 ansible_host=10.0.0.37 availability_zone=az03.cell02.cn-yogadev-1
+cell6 ansible_host=10.0.0.38 availability_zone=az03.cell02.cn-yogadev-1
 
 [compute-cell2]
-ecm0001.c.cn-rockydev-1 ansible_host=173.20.5.39 availability_zone=az03.cell02.cn-rockydev-1
-ecm0002.c.cn-rockydev-1 ansible_host=173.20.5.40 availability_zone=az03.cell02.cn-rockydev-1
-ecm0003.c.cn-rockydev-1 ansible_host=173.20.5.41 availability_zone=az03.cell02.cn-rockydev-1
+compute4 ansible_host=10.0.0.39 availability_zone=az03.cell02.cn-yogadev-1
+compute5 ansible_host=10.0.0.40 availability_zone=az03.cell02.cn-yogadev-1
+compute6 ansible_host=10.0.0.41 availability_zone=az03.cell02.cn-yogadev-1
 
 [cell2:children]
 cell-control-cell2
@@ -306,41 +296,41 @@ vim /usr/local/share/opensd/etc_examples/opensd/globals.yml
 network_interface: "eth0" #管理网络的网卡名称
 neutron_external_interface: "eth1" #业务网络的网卡名称
 cidr_netmask: 24 #管理网的掩码
-opensd_vip_address: 173.20.5.33  #控制节点虚拟IP地址
-cell1_vip_address: 173.20.5.34 #cell1集群的虚拟IP地址
-cell2_vip_address: 173.20.5.35 #cell2集群的虚拟IP地址
+opensd_vip_address: 10.0.0.33  #控制节点虚拟IP地址
+cell1_vip_address: 10.0.0.34 #cell1集群的虚拟IP地址
+cell2_vip_address: 10.0.0.35 #cell2集群的虚拟IP地址
 external_fqdn: "" #用于vnc访问虚拟机的外网域名地址
 external_ntp_servers: [] #外部ntp服务器地址
-yumrepo_host: 172.20.3.243 #yum源的IP地址
-yumrepo_port: 38888 #yum源端口号
-enviroment: test  #yum源的类型
+yumrepo_host:  #yum源的IP地址
+yumrepo_port:  #yum源端口号
+enviroment:   #yum源的类型
 upgrade_all_packages: "yes" #是否升级所有安装版的版本(执行yum upgrade)，初始部署资源请设置为"yes"
 enable_miner: "no" #是否开启部署miner服务
 
-enable_chrony: "no"
-enable_pri_mariadb: "no" 
+enable_chrony: "no" #是否开启部署chrony服务
+enable_pri_mariadb: "no" #是否为私有云部署mariadb
 enable_hosts_file_modify: "no" # 扩容计算节点和部署ironic服务的时候，是否将节点信息添加到`/etc/hosts`
 
 ########################
 # Available zone options
 ########################
 az_cephmon_compose:
-  - availability_zone: az01.cell01.cn-rockydev-1 #availability zone的名称，该名称必须与multinode主机文件内的az01的"availability_zone"值保持一致
-    ceph_mon_host: 172.20.90.2 #az01对应的一台ceph monitor主机地址，部署节点需要与该主机做ssh互信
-    reserve_vcpu_based_on_numa: "yes" # 根据numa node, 平均每个node预留vcpu
-  - availability_zone: az02.cell01.cn-rockydev-1 #availability zone的名称，该名称必须与multinode主机文件内的az02的"availability_zone"值保持一致
-    ceph_mon_host: 172.31.2.30 #az02对应的一台ceph monitor主机地址，部署节点需要与该主机做ssh互信
-    reserve_vcpu_based_on_numa: "no" # 从第一个vcpu开始，顺序预留vcpu
-  - availability_zone: az03.cell02.cn-rockydev-1 #availability zone的名称，该名称必须与multinode主机文件内的az03的"availability_zone"值保持一致
-    ceph_mon_host: 172.20.90.2 #az03对应的一台ceph monitor主机地址，部署节点需要与该主机做ssh互信
-    reserve_vcpu_based_on_numa: "yes" # 根据numa node, 平均每个node预留vcpu
+  - availability_zone:  #availability zone的名称，该名称必须与multinode主机文件内的az01的"availability_zone"值保持一致
+    ceph_mon_host:      #az01对应的一台ceph monitor主机地址，部署节点需要与该主机做ssh互信
+    reserve_vcpu_based_on_numa:  
+  - availability_zone:  #availability zone的名称，该名称必须与multinode主机文件内的az02的"availability_zone"值保持一致
+    ceph_mon_host:      #az02对应的一台ceph monitor主机地址，部署节点需要与该主机做ssh互信
+    reserve_vcpu_based_on_numa:  
+  - availability_zone:  #availability zone的名称，该名称必须与multinode主机文件内的az03的"availability_zone"值保持一致
+    ceph_mon_host:      #az03对应的一台ceph monitor主机地址，部署节点需要与该主机做ssh互信
+    reserve_vcpu_based_on_numa:
 
 # `reserve_vcpu_based_on_numa`配置为`yes` or `no`,举例说明：
 NUMA node0 CPU(s): 0-15,32-47
 NUMA node1 CPU(s): 16-31,48-63
-当reserve_vcpu_based_on_numa: "yes":
+当reserve_vcpu_based_on_numa: "yes", 根据numa node, 平均每个node预留vcpu:
 vcpu_pin_set = 2-15,34-47,18-31,50-63
-当reserve_vcpu_based_on_numa: "no":
+当reserve_vcpu_based_on_numa: "no", 从第一个vcpu开始，顺序预留vcpu:
 vcpu_pin_set = 8-64
 
 #######################
@@ -348,14 +338,14 @@ vcpu_pin_set = 8-64
 #######################
 nova_reserved_host_memory_mb: 2048 #计算节点给计算服务预留的内存大小
 enable_cells: "yes" #cell节点是否单独节点部署
-support_gpu: "True" #cell节点是否有GPU服务器，如果有则为True，否则为False
+support_gpu: "False" #cell节点是否有GPU服务器，如果有则为True，否则为False
 
 #######################
 # Neutron options
 #######################
 monitor_ip:
-    - 172.20.2.9   #配置监控节点
-    - 172.20.2.10
+    - 10.0.0.9   #配置监控节点
+    - 10.0.0.10
 enable_meter_full_eip: True   #配置是否允许EIP全量监控，默认为True
 enable_meter_port_forwarding: True   #配置是否允许port forwarding监控，默认为True
 enable_meter_ecs_ipv6: True   #配置是否允许ecs_ipv6监控，默认为True
@@ -363,19 +353,19 @@ enable_meter: True    #配置是否开启监控，默认为True
 is_sdn_arch: False    #配置是否是sdn架构，默认为False
 
 # 默认使能的网络类型是vlan,vlan和vxlan两种类型只能二选一.
-enable_vxlan_network_type: True  # 默认使能的网络类型是vlan,如果使用vxlan网络，配置为True, 如果使用vlan网络，配置为False.
-enable_neutron_fwaas: True       # 环境有使用防火墙, 设置为True, 使能防护墙功能.
+enable_vxlan_network_type: False  # 默认使能的网络类型是vlan,如果使用vxlan网络，配置为True, 如果使用vlan网络，配置为False.
+enable_neutron_fwaas: False       # 环境有使用防火墙, 设置为True, 使能防护墙功能.
 # Neutron provider
 neutron_provider_networks:
   network_types: "{{ 'vxlan' if enable_vxlan_network_type else 'vlan' }}"
   network_vlan_ranges: "default:xxx:xxx" #部署之前规划的业务网络vlan范围
   network_mappings: "default:br-provider"
   network_interface: "{{ neutron_external_interface }}"
-  network_vxlan_ranges: "xxxxxx:xxxxxx" #部署之前规划的业务网络vxlan范围
+  network_vxlan_ranges: "" #部署之前规划的业务网络vxlan范围
 
 # 如下这些配置是SND控制器的配置参数, `enable_sdn_controller`设置为True, 使能SND控制器功能.
 # 其他参数请根据部署之前的规划和SDN部署信息确定.
-enable_sdn_controller: True
+enable_sdn_controller: False
 sdn_controller_ip_address:  # SDN控制器ip地址
 sdn_controller_username:    # SDN控制器的用户名
 sdn_controller_password:    # SDN控制器的用户密码
@@ -441,7 +431,7 @@ yum install ansible -y
 ansible all -i /usr/local/share/opensd/ansible/inventory/multinode -m ping
 
 # 执行结果显示每台主机都是"SUCCESS"即说明连接状态没问题,示例：
-ecm0001.b.cn-rockydev-1 | SUCCESS => {
+compute1 | SUCCESS => {
   "ansible_facts": {
       "discovered_interpreter_python": "/usr/bin/python"
   },
@@ -460,21 +450,18 @@ ecm0001.b.cn-rockydev-1 | SUCCESS => {
 # 执行部署
 opensd -i /usr/local/share/opensd/ansible/inventory/multinode bootstrap --forks 50
 ```
-### 8.2 重启服务器
-**注：执行重启的原因是:bootstrap可能会升内核,更改selinux配置或者有GPU服务器,如果装机过程已经是新版内核,selinux disable或者没有GPU服务器,则不需要执行该步骤**
-1. 定制的centos x86操作系统不升级内核版本;
-2. NeoKylin-Server-7.0-Hygon x86操作系统不升级内核版本;
-3. NeoKylin-Server-7.0-aarch64 arm操作系统升级内核版本;
 
+### 8.2 重启服务器
+
+**注：执行重启的原因是:bootstrap可能会升内核,更改selinux配置或者有GPU服务器,如果装机过程已经是新版内核,selinux disable或者没有GPU服务器,则不需要执行该步骤**
 ```shell
 # 手动重启对应节点,执行命令
 init6
 # 重启完成后，再次检查连通性
 ansible all -i /usr/local/share/opensd/ansible/inventory/multinode -m ping
 # 重启完后操作系统后，再次启动yum源
-cd /opt/repo/
-python -m SimpleHTTPServer 38888 > /dev/null 2>&1  &
 ```
+
 ### 8.3 执行部署前检查
 
 ```shell
@@ -485,5 +472,9 @@ opensd -i /usr/local/share/opensd/ansible/inventory/multinode prechecks --forks 
 ```shell
 ln -s /usr/bin/python3 /usr/bin/python
 
+全量部署：
 opensd -i /usr/local/share/opensd/ansible/inventory/multinode deploy --forks 50
+
+单服务部署：
+opensd -i /usr/local/share/opensd/ansible/inventory/multinode deploy --forks 50 -t service_name
 ```
