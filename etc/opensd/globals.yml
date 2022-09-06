@@ -61,7 +61,7 @@ nova_reserved_host_memory_mb: 2048
 enable_cells: "yes"
 # Monitor agent must be running in vm, set to True;
 # otherwise, set to False
-nova_enable_vm_monitor: "True"
+nova_enable_vm_monitor: "False"
 # If monitor_is_fatal is set to True & monotor server is unhealthy,
 # instance operation will be failed.
 monitor_is_fatal: "False"
@@ -69,7 +69,7 @@ monitor_is_fatal: "False"
 # nova-compute service will be set to disabled.
 monitor_auto_disable_service: "False"
 # When have GPU servers, make this to "True", otherwise "False".
-support_gpu: "True"
+support_gpu: "False"
 
 #######################
 # Neutron options
@@ -82,8 +82,8 @@ enable_meter_ecs_ipv6: True
 enable_meter: True
 is_sdn_arch: False
 # neutron vxlan and fwaas Configuration
-enable_vxlan_network_type: True
-enable_neutron_fwaas: True
+enable_vxlan_network_type: False
+enable_neutron_fwaas: False
 # Neutron provider
 neutron_provider_networks:
   network_types: "{{ 'vxlan' if enable_vxlan_network_type else 'vlan' }}"
@@ -93,7 +93,7 @@ neutron_provider_networks:
   network_vxlan_ranges: "xxxxxx:xxxxxx"
 
 # sdn controller info
-enable_sdn_controller: True
+enable_sdn_controller: False
 sdn_controller_ip_address: ""
 sdn_controller_username: ""
 sdn_controller_password: ""
