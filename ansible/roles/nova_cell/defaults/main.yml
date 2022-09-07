@@ -311,6 +311,7 @@ nova_compute_packages_aarch64:
   - dosfstools
   - iscsi-initiator-utils
   - kpartx
+  - edk2-aarch64 
 nova_conductor_packages:
   - openstack-nova-conductor
 nova_compute_ironic_packages:
@@ -344,9 +345,7 @@ libvirt_common_packages:
   - sysfsutils
   - dmidecode
 libvirt_packages_x86_64:
-  - libvirt-daemon-kvm
-  - libvirt-daemon-driver-qemu
-  - libvirt-client
+  - libvirt
 libvirt_packages_aarch64:
   - libvirt
 libvirt_package_list: |-

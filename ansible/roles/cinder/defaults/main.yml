@@ -175,7 +175,7 @@ cinder_service_distro_packages:
   - openstack-cinder
   - python-openstackclient
 
-cinder_volume_distro_packages: "{{ ['iscsi-initiator-utils', 'nfs-utils', 'rpcbind'] if  (ansible_architecture == 'aarch64') else ['qemu-img-ev', 'iscsi-initiator-utils', 'nfs-utils', 'rpcbind'] }}"
+cinder_volume_distro_packages: "{{ ['iscsi-initiator-utils', 'nfs-utils', 'rpcbind'] }}"
 
 cinder_lvm_volume_distro_packages:
   - device-mapper-event

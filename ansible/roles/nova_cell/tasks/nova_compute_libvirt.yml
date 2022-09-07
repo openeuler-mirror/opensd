@@ -19,7 +19,6 @@
     - libvirtd-admin.socket
     - libvirtd-tls.socket
     - libvirtd-tcp.socket
-  when: ansible_architecture == "aarch64"
 
 - name: Copy over libvirtd.conf
   template:
