@@ -52,20 +52,3 @@
   notify:
     - Restart nova services
 
-- name: Copying over qemu.conf
-  template:
-    src: "{{ item }}"
-    dest: "/etc/libvirt/qemu.conf"
-    mode: "0660"
-  with_items:
-    - "qemu.conf.j2"
-  when: ansible_architecture == "aarch64"
-
-- name: Copying over edk2-aarch64.json
-  template:
-    src: "{{ item }}"
-    dest: "/etc/qemu/firmware/edk2-aarch64.json"
-    mode: "0660"
-  with_items:
-    - "edk2-aarch64.json.j2"
-  when: ansible_architecture == "aarch64"
