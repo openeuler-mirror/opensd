@@ -108,3 +108,35 @@
   when: inventory_hostname in groups[nova_cell_conductor_group]
   notify:
     - Restart nova services
+
+- name: Copying over qemu.conf
+  template:
+    src: "{{ item }}"
+    dest: "/etc/libvirt/qemu.conf"
+    mode: "0660"
+  with_items:
+    - "qemu.conf.j2"
+  when: ansible_architecture == "aarch64"
+
+- name: Provide AAVMF directory
+  file:
+    dest: /usr/share/AAVMF
+    state: directory
+    owner: nova
+    group: nova
+    mode: "0755"
+  when: ansible_architecture == "aarch64"
+
+- name: Create AAVMF_CODE link
+  file:
+    src: "/usr/share/edk2/aarch64/QEMU_EFI-pflash.raw"
+    dest: "/usr/share/AAVMF/AAVMF_CODE.fd"
+    state: link
+  when: ansible_architecture == "aarch64"
+
+- name: Create AAVMF_VARS link
+  file:
+    src: "/usr/share/edk2/aarch64/vars-template-pflash.raw"
+    dest: "/usr/share/AAVMF/AAVMF_VARS.fd"
+    state: link
+  when: ansible_architecture == "aarch64"
