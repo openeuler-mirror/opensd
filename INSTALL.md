@@ -111,18 +111,23 @@ mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/
 
 ```shell
 cat > /etc/yum.repos.d/opensd.repo << EOF
+[train]
+name=train
+baseurl=http://119.3.219.20:82/openEuler:/22.03:/LTS:/SP1:/Epol:/Multi-Version:/OpenStack:/Train/standard_$basearch/
+enabled=1
+gpgcheck=0
+
 [epol]
 name=epol
-baseurl=http://119.3.219.20:82/openEuler:/22.09:/Epol/$basearch/
+baseurl=http://119.3.219.20:82/openEuler:/22.03:/LTS:/SP1:/Epol/standard_$basearch/
 enabled=1
 gpgcheck=0
 
 [everything]
 name=everything
-baseurl=http://119.3.219.20:82/openEuler:/22.09/$basearch/
+baseurl=http://119.3.219.20:82/openEuler:/22.03:/LTS:/SP1/standard_$basearch/
 enabled=1
 gpgcheck=0
-
 EOF
 ```
 
@@ -143,6 +148,15 @@ yum makecache
 git clone https://gitee.com/openeuler/opensd
 cd opensd
 python3 setup.py install
+```
+安装软件包：
+```shell
+yum install expect ansible python3-libselinux python3-pbr python3-utils python3-pyyaml python3-oslo-utils -y
+```
+openEuler-22.03-LTS-SP1中sqlalchemy、eventlet需安装以下版本：
+```shell
+pip install sqlalchemy==1.3.24
+pip install eventlet==0.30.2
 ```
 
 ## 6. 做ssh互信
@@ -180,7 +194,6 @@ vim /usr/local/bin/opensd-auto-ssh
 
 ```shell
 ## 安装expect后执行脚本
-yum install expect -y
 opensd-auto-ssh
 ```
 
@@ -195,9 +208,7 @@ ssh-copy-id root@x.x.x.x
 **在部署节点执行：**
 
 ### 7.1 生成随机密码
-安装 python3-pbr, python3-utils, python3-pyyaml, python3-oslo-utils并随机生成密码
 ```shell
-yum install python3-pbr python3-utils python3-pyyaml python3-oslo-utils -y
 # 执行命令生成密码
 opensd-genpwd
 # 检查密码是否生成
@@ -427,7 +438,6 @@ miner_package_state: "present"
 
 ### 7.4 检查所有节点ssh连接状态
 ```shell
-yum install ansible -y
 ansible all -i /usr/local/share/opensd/ansible/inventory/multinode -m ping
 
 # 执行结果显示每台主机都是"SUCCESS"即说明连接状态没问题,示例：
@@ -470,8 +480,6 @@ opensd -i /usr/local/share/opensd/ansible/inventory/multinode prechecks --forks 
 ### 8.4 执行部署
 
 ```shell
-ln -s /usr/bin/python3 /usr/bin/python
-
 全量部署：
 opensd -i /usr/local/share/opensd/ansible/inventory/multinode deploy --forks 50
 
